@@ -1,0 +1,28 @@
+/target
+/Cargo.lock
+**/*.rs.bk
+*.swp
+*~
+.DS_Store
+
+# IDE
+.vscode/
+.idea/
+*.iml
+
+# Debug
+*.pdb
+
+# Logs
+*.log
+
+# Config (for development)
+/config.toml
+/tunawm.conf
+inspiration/
+*.mkv
+log.txt
+tmp/
+
+# Bug reproduction tests
+tests/bug_repro/
