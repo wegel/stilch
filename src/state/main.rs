@@ -9,9 +9,8 @@ use tracing::{debug, error, info, warn};
 
 use smithay::{
     backend::renderer::element::{
-            default_primary_scanout_output_compare, utils::select_dmabuf_feedback,
-            RenderElementStates,
-        },
+        default_primary_scanout_output_compare, utils::select_dmabuf_feedback, RenderElementStates,
+    },
     delegate_compositor, delegate_layer_shell, delegate_xdg_shell,
     desktop::{
         space::SpaceElement,
@@ -19,7 +18,8 @@ use smithay::{
             surface_presentation_feedback_flags_from_states, surface_primary_scanout_output,
             update_surface_primary_scanout_output, with_surfaces_surface_tree,
             OutputPresentationFeedback,
-        }, Space,
+        },
+        Space,
     },
     input::{
         keyboard::{Keysym, LedState, XkbConfig},
@@ -47,10 +47,7 @@ use smithay::{
         pointer_constraints::PointerConstraintsState,
         pointer_gestures::PointerGesturesState,
         relative_pointer::RelativePointerManagerState,
-        security_context::{
-            SecurityContext,
-            SecurityContextState,
-        },
+        security_context::{SecurityContext, SecurityContextState},
         socket::ListeningSocketSource,
         tablet_manager::TabletManagerState,
         text_input::TextInputManagerState,
@@ -119,7 +116,7 @@ pub struct StilchState<BackendData: Backend + 'static> {
 
     // Event system
     pub event_bus: EventBus,
-    
+
     // Redraw scheduler
     pub redraw_scheduler: RedrawScheduler,
 
@@ -253,17 +250,18 @@ impl<BackendData: Backend + 'static> StilchState<BackendData> {
             // Check if we should use a specific socket name (for testing)
             let source = if let Ok(socket_name) = std::env::var("STILCH_WAYLAND_SOCKET") {
                 info!("Using specified Wayland socket: {socket_name}");
-                ListeningSocketSource::with_name(&socket_name)
-                    .unwrap_or_else(|e| {
-                        error!("Failed to create Wayland socket with specified name '{}': {:?}", socket_name, e);
-                        std::process::exit(1);
-                    })
+                ListeningSocketSource::with_name(&socket_name).unwrap_or_else(|e| {
+                    error!(
+                        "Failed to create Wayland socket with specified name '{}': {:?}",
+                        socket_name, e
+                    );
+                    std::process::exit(1);
+                })
             } else {
-                ListeningSocketSource::new_auto()
-                    .unwrap_or_else(|e| {
-                        error!("Failed to create Wayland socket automatically: {:?}", e);
-                        std::process::exit(1);
-                    })
+                ListeningSocketSource::new_auto().unwrap_or_else(|e| {
+                    error!("Failed to create Wayland socket automatically: {:?}", e);
+                    std::process::exit(1);
+                })
             };
             let socket_name = source.socket_name().to_string_lossy().into_owned();
             handle
@@ -460,13 +458,14 @@ impl<BackendData: Backend + 'static> StilchState<BackendData> {
                         .unwrap_or(1.);
                     data.client_compositor_state(&client)
                         .set_client_scale(xwayland_scale);
-                    let mut wm = match X11Wm::start_wm(data.handle.clone(), x11_socket, client.clone()) {
-                        Ok(wm) => wm,
-                        Err(e) => {
-                            error!("Failed to attach X11 Window Manager: {:?}", e);
-                            return;
-                        }
-                    };
+                    let mut wm =
+                        match X11Wm::start_wm(data.handle.clone(), x11_socket, client.clone()) {
+                            Ok(wm) => wm,
+                            Err(e) => {
+                                error!("Failed to attach X11 Window Manager: {:?}", e);
+                                return;
+                            }
+                        };
 
                     let cursor = Cursor::load();
                     let image = cursor.get_image(1, Duration::ZERO);
@@ -565,7 +564,12 @@ impl<BackendData: Backend + 'static> StilchState<BackendData> {
             // Send global workspace state (using virtual output 0 for compatibility)
             // Use the first virtual output for workspace updates
             // TODO: Handle multiple virtual outputs properly
-            if let Some(first_vo_id) = self.virtual_output_manager.list_virtual_outputs().first().copied() {
+            if let Some(first_vo_id) = self
+                .virtual_output_manager
+                .list_virtual_outputs()
+                .first()
+                .copied()
+            {
                 ipc_server.send_workspace_update(first_vo_id, workspaces);
             }
         }
@@ -1191,7 +1195,7 @@ impl<BackendData: Backend + 'static> StilchState<BackendData> {
 
             // Update IPC state (the event handler will do this now, but keep for backwards compatibility)
             self.update_ipc_workspace_state();
-            
+
             // Queue redraw for physical outputs associated with this virtual output
             if let Some(vo) = self.virtual_output_manager.get(virtual_output_id) {
                 let outputs_to_redraw: Vec<_> = vo.physical_outputs().to_vec();
@@ -1437,12 +1441,15 @@ impl<BackendData: Backend + 'static> StilchState<BackendData> {
                     window_id, workspace_id
                 );
                 self.focus_window(&window);
-                
+
                 // Queue redraw for outputs where the new window is visible
                 if let Some(bbox) = self.space().element_bbox(&window) {
-                    let outputs_to_redraw: Vec<_> = self.space().outputs()
+                    let outputs_to_redraw: Vec<_> = self
+                        .space()
+                        .outputs()
                         .filter(|output| {
-                            self.space().output_geometry(output)
+                            self.space()
+                                .output_geometry(output)
                                 .map(|geo| geo.overlaps(bbox))
                                 .unwrap_or(false)
                         })
@@ -1495,12 +1502,15 @@ impl<BackendData: Backend + 'static> StilchState<BackendData> {
             );
             // Raise to top
             self.space_mut().raise_element(window, true);
-            
+
             // Queue redraw for outputs affected by focus change
             if let Some(bbox) = self.space().element_bbox(window) {
-                let outputs_to_redraw: Vec<_> = self.space().outputs()
+                let outputs_to_redraw: Vec<_> = self
+                    .space()
+                    .outputs()
                     .filter(|output| {
-                        self.space().output_geometry(output)
+                        self.space()
+                            .output_geometry(output)
                             .map(|geo| geo.overlaps(bbox))
                             .unwrap_or(false)
                     })
@@ -1542,6 +1552,39 @@ impl<BackendData: Backend + 'static> StilchState<BackendData> {
         Point::from((loc.x as i32, loc.y as i32))
     }
 
+    /// Clamp pointer location to screen boundaries
+    pub fn clamp_pointer_location(&self, location: Point<f64, Logical>) -> Point<f64, Logical> {
+        // Get the maximum X coordinate across all outputs
+        let max_x = self.space().outputs().fold(0, |acc, o| {
+            acc + self
+                .space()
+                .output_geometry(o)
+                .map(|g| g.size.w)
+                .unwrap_or(0)
+        });
+
+        // Clamp X to valid range [0, max_x - 1]
+        let clamped_x = location.x.clamp(0.0, (max_x - 1).max(0) as f64);
+
+        // Find the output containing the clamped X coordinate to get the correct max_y
+        let max_y = self
+            .space()
+            .outputs()
+            .find(|o| {
+                self.space()
+                    .output_geometry(o)
+                    .map(|geo| geo.contains(Point::from((clamped_x as i32, 0))))
+                    .unwrap_or(false)
+            })
+            .and_then(|o| self.space().output_geometry(o).map(|g| g.size.h))
+            .unwrap_or(0);
+
+        // Clamp Y to valid range [0, max_y - 1]
+        let clamped_y = location.y.clamp(0.0, (max_y - 1).max(0) as f64);
+
+        Point::from((clamped_x, clamped_y))
+    }
+
     /// Get virtual output at pointer location
     pub fn virtual_output_at_pointer(&self) -> Option<crate::virtual_output::VirtualOutputId> {
         self.virtual_output_manager
@@ -1575,10 +1618,7 @@ impl<BackendData: Backend + 'static> StilchState<BackendData> {
 
         // Find target virtual output in the given direction
         let current_center = {
-            let vo = match self
-                .virtual_output_manager
-                .get(current_vo_id)
-            {
+            let vo = match self.virtual_output_manager.get(current_vo_id) {
                 Some(vo) => vo,
                 None => {
                     error!("Current virtual output should exist but was not found");
@@ -2631,7 +2671,7 @@ impl<BackendData: Backend> StilchState<BackendData> {
             self.event_bus.emit_window(event);
         }
     }
-    
+
     /// Queue a redraw for a specific output
     pub fn queue_redraw(&mut self, output: &Output) {
         tracing::trace!("Queuing redraw for output {}", output.name());
@@ -2639,7 +2679,7 @@ impl<BackendData: Backend> StilchState<BackendData> {
         self.redraw_scheduler.queue_redraw(output);
         // Backend-specific rendering will be triggered separately
     }
-    
+
     /// Queue redraws for all outputs
     pub fn queue_redraw_all(&mut self) {
         let outputs: Vec<_> = self.space().outputs().cloned().collect();

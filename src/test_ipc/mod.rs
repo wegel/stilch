@@ -196,6 +196,9 @@ pub enum TestCommand {
     /// Move mouse to position
     MoveMouse { x: i32, y: i32 },
 
+    /// Get current cursor position
+    GetCursorPosition,
+
     /// Click mouse button
     MouseClick {
         button: MouseButton,

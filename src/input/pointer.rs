@@ -215,30 +215,8 @@ impl StilchState<crate::udev::UdevData> {
 
         pointer_location += evt.delta();
 
-        // clamp to screen limits
-        let max_x = self.space().outputs().fold(0, |acc, o| {
-            acc + self
-                .space()
-                .output_geometry(o)
-                .map(|g| g.size.w)
-                .unwrap_or(0)
-        });
-        let clamped_x = pointer_location.x.clamp(0.0, max_x as f64);
-        let max_y = self
-            .space()
-            .outputs()
-            .find(|o| {
-                self.space()
-                    .output_geometry(o)
-                    .map(|geo| geo.contains(Point::from((clamped_x as i32, 0))))
-                    .unwrap_or(false)
-            })
-            .and_then(|o| self.space().output_geometry(o).map(|g| g.size.h));
-
-        if let Some(max_y) = max_y {
-            let clamped_y = pointer_location.y.clamp(0.0, max_y as f64);
-            pointer_location = (clamped_x, clamped_y).into();
-        }
+        // Clamp to screen boundaries
+        pointer_location = self.clamp_pointer_location(pointer_location);
 
         let under = self.surface_under(pointer_location);
 
@@ -295,8 +273,26 @@ impl StilchState<crate::udev::UdevData> {
                 .unwrap_or(0)
         });
 
+        let max_y = self
+            .space()
+            .outputs()
+            .map(|o| {
+                self.space()
+                    .output_geometry(o)
+                    .map(|g| g.size.h)
+                    .unwrap_or(0)
+            })
+            .max()
+            .unwrap_or(0);
+
         let pos = evt.position();
-        let location = (pos.x * max_x as f64, pos.y * max_x as f64).into();
+        // Convert normalized coordinates to pixel coordinates
+        let x = pos.x * max_x as f64;
+        let y = pos.y * max_y as f64;
+        let location = Point::from((x, y));
+
+        // Clamp to screen boundaries
+        let location = self.clamp_pointer_location(location);
 
         let pointer = self.pointer().clone();
         let under = self.surface_under(location);

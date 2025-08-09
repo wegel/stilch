@@ -836,6 +836,52 @@ impl TestIpcHandler {
                     }
                 }
 
+                crate::test_ipc::TestCommand::MoveMouse { x, y } => {
+                    // Move pointer to position, using the production clamping logic
+                    use smithay::utils::{Logical, Point};
+
+                    let target = Point::<f64, Logical>::from((x as f64, y as f64));
+
+                    // Apply the same clamping logic as production code
+                    let clamped = state.clamp_pointer_location(target);
+
+                    // Set the pointer location
+                    state.pointer().set_location(clamped);
+
+                    info!(
+                        "MoveMouse: Requested ({}, {}), clamped to ({}, {})",
+                        x, y, clamped.x, clamped.y
+                    );
+
+                    crate::test_ipc::TestResponse::Success {
+                        message: format!(
+                            "Moved mouse to ({}, {})",
+                            clamped.x as i32, clamped.y as i32
+                        ),
+                    }
+                }
+
+                crate::test_ipc::TestCommand::GetCursorPosition => {
+                    // Get current cursor position
+                    let location = state.pointer().current_location();
+                    info!(
+                        "GetCursorPosition: Current location is ({}, {})",
+                        location.x, location.y
+                    );
+
+                    // Return as a Success response with the position in the message
+                    // The test can parse this
+                    crate::test_ipc::TestResponse::Success {
+                        message: serde_json::to_string(&serde_json::json!({
+                            "data": {
+                                "x": location.x,
+                                "y": location.y
+                            }
+                        }))
+                        .unwrap(),
+                    }
+                }
+
                 _ => {
                     info!("Unhandled test command: {:?}", command);
                     crate::test_ipc::TestResponse::Error {
