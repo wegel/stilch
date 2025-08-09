@@ -10,7 +10,7 @@ use std::sync::{Arc, Mutex as StdMutex};
 use tracing::{error, info};
 
 use crate::{
-    state::{StilchState, Backend as BackendTrait},
+    state::{Backend as BackendTrait, StilchState},
     test_ipc::{TestCommand, TestResponse, WindowInfo, WorkspaceInfo},
     window::WindowLayout,
     workspace::WorkspaceId,

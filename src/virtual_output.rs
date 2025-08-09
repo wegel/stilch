@@ -45,7 +45,7 @@ pub enum VirtualOutputState {
 }
 
 /// Type-safe identifier for virtual outputs
-/// 
+///
 /// Uses NonZeroU32 to ensure IDs are never zero and can be
 /// efficiently stored in Option without overhead
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -57,27 +57,28 @@ impl VirtualOutputId {
     pub fn from_raw(id: u32) -> Option<Self> {
         NonZeroU32::new(id).map(VirtualOutputId)
     }
-    
+
     /// Create from usize for compatibility
     /// Returns None if the value is zero or too large
     pub fn from_usize(id: usize) -> Option<Self> {
-        u32::try_from(id).ok()
+        u32::try_from(id)
+            .ok()
             .and_then(NonZeroU32::new)
             .map(VirtualOutputId)
     }
-    
+
     /// Create for testing/legacy code
     /// # Panics
     /// Panics if id is zero
     pub fn new(id: usize) -> Self {
         Self::from_usize(id).expect("VirtualOutputId cannot be zero")
     }
-    
+
     /// Get the raw value
     pub fn get(&self) -> u32 {
         self.0.get()
     }
-    
+
     /// Get as usize for indexing
     pub fn as_usize(&self) -> usize {
         self.0.get() as usize
@@ -139,9 +140,10 @@ impl VirtualOutputManager {
         physical_outputs: Vec<Output>,
         logical_region: Rectangle<i32, Logical>,
     ) -> VirtualOutputId {
-        let id = VirtualOutputId::from_raw(self.next_id)
-            .expect("VirtualOutputId overflow");
-        self.next_id = self.next_id.checked_add(1)
+        let id = VirtualOutputId::from_raw(self.next_id).expect("VirtualOutputId overflow");
+        self.next_id = self
+            .next_id
+            .checked_add(1)
             .expect("VirtualOutputId counter overflow");
 
         let virtual_output = VirtualOutput {
@@ -210,8 +212,7 @@ impl VirtualOutputManager {
         let mut virtual_ids = Vec::new();
 
         for i in 0..count {
-            let id = VirtualOutputId::from_raw(self.next_id)
-                .expect("VirtualOutputId overflow");
+            let id = VirtualOutputId::from_raw(self.next_id).expect("VirtualOutputId overflow");
             self.next_id += 1;
 
             let region = match split_type {
@@ -278,8 +279,7 @@ impl VirtualOutputManager {
             }
         }
 
-        let id = VirtualOutputId::from_raw(self.next_id)
-            .expect("VirtualOutputId overflow");
+        let id = VirtualOutputId::from_raw(self.next_id).expect("VirtualOutputId overflow");
         self.next_id += 1;
 
         // Calculate combined region by finding bounding box
@@ -329,7 +329,7 @@ impl VirtualOutputManager {
     pub fn get_mut(&mut self, id: VirtualOutputId) -> Option<&mut VirtualOutput> {
         self.virtual_outputs.get_mut(&id)
     }
-    
+
     /// List all virtual output IDs
     pub fn list_virtual_outputs(&self) -> Vec<VirtualOutputId> {
         self.virtual_outputs.keys().copied().collect()

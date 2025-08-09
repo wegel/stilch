@@ -4,7 +4,7 @@ use smithay::input::{
     Seat,
 };
 
-use crate::state::{StilchState, Backend, DndIcon};
+use crate::state::{Backend, DndIcon, StilchState};
 
 /// Centralized input management
 #[derive(Debug)]

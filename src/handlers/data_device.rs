@@ -18,7 +18,7 @@ use smithay::{
     },
 };
 
-use crate::state::{StilchState, Backend, DndIcon};
+use crate::state::{Backend, DndIcon, StilchState};
 
 impl<BackendData: Backend> DataDeviceHandler for StilchState<BackendData> {
     fn data_device_state(&mut self) -> &mut DataDeviceState {
@@ -52,7 +52,7 @@ impl<BackendData: Backend> ClientDndGrabHandler for StilchState<BackendData> {
             };
         self.input_manager.dnd_icon = icon.map(|surface| DndIcon { surface, offset });
     }
-    
+
     fn dropped(&mut self, _target: Option<WlSurface>, _validated: bool, _seat: Seat<Self>) {
         self.input_manager.dnd_icon = None;
     }

@@ -12,47 +12,47 @@ pub enum StilchError {
     /// Window not found in registry
     #[error("Window {0:?} not found")]
     WindowNotFound(crate::window::WindowId),
-    
+
     /// Surface has no associated window
     #[error("Surface has no associated window")]
     SurfaceNotMapped,
-    
+
     /// Client is missing required compositor state
     #[error("Client is missing compositor state")]
     ClientStateMissing,
-    
+
     /// Invalid window operation
     #[error("Invalid window operation: {0}")]
     InvalidOperation(String),
-    
+
     /// Workspace not found
     #[error("Workspace {0} not found")]
     WorkspaceNotFound(u8),
-    
+
     /// Virtual output not found
     #[error("Virtual output {0:?} not found")]
     VirtualOutputNotFound(crate::virtual_output::VirtualOutputId),
-    
+
     /// Container not found
     #[error("Container {0:?} not found")]
     ContainerNotFound(crate::window::ContainerId),
-    
+
     /// Configuration error
     #[error("Configuration error: {0}")]
     Config(String),
-    
+
     /// Rendering error
     #[error("Rendering error: {0}")]
     Render(String),
-    
+
     /// IO error
     #[error("IO error: {0}")]
     Io(#[from] std::io::Error),
-    
+
     /// Wayland protocol error
     #[error("Wayland error: {0}")]
     Wayland(String),
-    
+
     /// Backend-specific error
     #[error("Backend error: {0}")]
     Backend(String),

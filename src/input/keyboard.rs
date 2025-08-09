@@ -18,7 +18,7 @@ use smithay::backend::session::Session;
 
 use crate::{
     keybindings::KeyAction,
-    state::{StilchState, Backend},
+    state::{Backend, StilchState},
 };
 
 impl<BackendData: Backend> StilchState<BackendData> {
@@ -41,7 +41,9 @@ impl<BackendData: Backend> StilchState<BackendData> {
         let serial = SCOUNTER.next_serial();
         let time = Event::time_msec(&evt);
         let mut suppressed_keys = self.input_manager.suppressed_keys.clone();
-        let keyboard = self.seat().get_keyboard()
+        let keyboard = self
+            .seat()
+            .get_keyboard()
             // SAFETY: We always initialize the keyboard with the seat
             .expect("Keyboard not initialized");
 

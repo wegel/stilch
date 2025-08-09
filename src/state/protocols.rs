@@ -32,7 +32,7 @@ use smithay::{
 #[cfg(feature = "xwayland")]
 use smithay::wayland::xwayland_shell::XWaylandShellState;
 
-use crate::state::{StilchState, Backend};
+use crate::state::{Backend, StilchState};
 
 /// Container for all Wayland protocol states
 #[derive(Debug)]

@@ -137,7 +137,9 @@ impl AsciiBackend {
     pub fn update_window(&mut self, window: AsciiWindow) {
         let id = window.id;
         match self.windows.lock() {
-            Ok(mut windows) => { windows.insert(id, window); }
+            Ok(mut windows) => {
+                windows.insert(id, window);
+            }
             Err(e) => tracing::error!("Windows lock poisoned: {e}"),
         }
     }
@@ -145,7 +147,9 @@ impl AsciiBackend {
     /// Remove a window
     pub fn remove_window(&mut self, id: WindowId) {
         match self.windows.lock() {
-            Ok(mut windows) => { windows.remove(&id); }
+            Ok(mut windows) => {
+                windows.remove(&id);
+            }
             Err(e) => tracing::error!("Windows lock poisoned: {e}"),
         }
     }
@@ -400,10 +404,7 @@ impl AsciiBackend {
     /// Get a list of windows with their positions
     pub fn get_windows(&self) -> Vec<(WindowId, Rectangle<i32, Logical>)> {
         match self.windows.lock() {
-            Ok(windows) => windows
-                .iter()
-                .map(|(id, w)| (*id, w.bounds))
-                .collect(),
+            Ok(windows) => windows.iter().map(|(id, w)| (*id, w.bounds)).collect(),
             Err(e) => {
                 error!("Windows lock poisoned: {e}");
                 vec![]

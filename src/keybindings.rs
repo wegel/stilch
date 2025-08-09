@@ -1,7 +1,7 @@
 use crate::{
     config::{Command, Direction, LayoutCommand, WorkspaceTarget},
     shell::WindowElement,
-    state::{StilchState, Backend},
+    state::{Backend, StilchState},
 };
 use smithay::{
     backend::input::KeyState,
@@ -956,7 +956,8 @@ impl<BackendData: Backend> StilchState<BackendData> {
         };
 
         // Get the window ID from the element
-        let Some(focused_window_id) = self.window_registry().find_by_element(&focused_element) else {
+        let Some(focused_window_id) = self.window_registry().find_by_element(&focused_element)
+        else {
             tracing::warn!("Could not find window ID for focused element");
             return;
         };

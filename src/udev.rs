@@ -13,7 +13,7 @@ use crate::{
     drawing::*,
     render::*,
     shell::WindowElement,
-    state::{take_presentation_feedback, update_primary_scanout_output, StilchState, Backend},
+    state::{take_presentation_feedback, update_primary_scanout_output, Backend, StilchState},
 };
 use crate::{
     shell::WindowRenderElement,
@@ -167,7 +167,9 @@ impl UdevData {
 
 impl DmabufHandler for StilchState<UdevData> {
     fn dmabuf_state(&mut self) -> &mut DmabufState {
-        &mut self.backend_data.dmabuf_state
+        &mut self
+            .backend_data
+            .dmabuf_state
             .as_mut()
             // SAFETY: dmabuf_state is always initialized before this handler is registered
             .expect("DmaBuf state should be initialized for udev backend")
@@ -228,10 +230,9 @@ impl Backend for UdevData {
 }
 
 pub fn run_udev(enable_test_ipc: bool) -> Result<(), Box<dyn std::error::Error>> {
-    let mut event_loop = EventLoop::try_new()
-        .map_err(|e| format!("Failed to create event loop: {e}"))?;
-    let display = Display::new()
-        .map_err(|e| format!("Failed to create Wayland display: {e}"))?;
+    let mut event_loop =
+        EventLoop::try_new().map_err(|e| format!("Failed to create event loop: {e}"))?;
+    let display = Display::new().map_err(|e| format!("Failed to create Wayland display: {e}"))?;
     let mut display_handle = display.handle();
 
     /*
@@ -248,8 +249,7 @@ pub fn run_udev(enable_test_ipc: bool) -> Result<(), Box<dyn std::error::Error>>
      * Initialize the compositor
      */
     let primary_gpu = if let Ok(var) = std::env::var("ANVIL_DRM_DEVICE") {
-        DrmNode::from_path(var)
-            .map_err(|e| format!("Invalid DRM device path: {e}"))?
+        DrmNode::from_path(var).map_err(|e| format!("Invalid DRM device path: {e}"))?
     } else {
         primary_gpu(session.seat())
             .ok()
@@ -304,7 +304,8 @@ pub fn run_udev(enable_test_ipc: bool) -> Result<(), Box<dyn std::error::Error>>
     let mut libinput_context = Libinput::new_with_udev::<LibinputSessionInterface<LibSeatSession>>(
         state.backend_data.session.clone().into(),
     );
-    libinput_context.udev_assign_seat(&state.seat_name)
+    libinput_context
+        .udev_assign_seat(&state.seat_name)
         .map_err(|_| "Failed to assign udev seat")?;
     let libinput_backend = LibinputInputBackend::new(libinput_context.clone());
 
@@ -372,10 +373,7 @@ pub fn run_udev(enable_test_ipc: bool) -> Result<(), Box<dyn std::error::Error>>
                     // but for demonstration we choose a more optimistic path by leaving the
                     // state as is and assume it will just work. If this assumption fails
                     // we will try to reset the state when trying to queue a frame.
-                    if let Err(e) = backend
-                        .drm_output_manager
-                        .lock()
-                        .activate(false) {
+                    if let Err(e) = backend.drm_output_manager.lock().activate(false) {
                         error!("Failed to activate drm backend: {e}");
                         // Continue anyway - the backend may still be partially functional
                     }
@@ -412,7 +410,10 @@ pub fn run_udev(enable_test_ipc: bool) -> Result<(), Box<dyn std::error::Error>>
                 }
             }
             Err(e) => {
-                error!("Failed to get primary node from device id {}: {}", device_id, e);
+                error!(
+                    "Failed to get primary node from device id {}: {}",
+                    device_id, e
+                );
             }
         }
     }
@@ -622,9 +623,6 @@ pub fn run_udev(enable_test_ipc: bool) -> Result<(), Box<dyn std::error::Error>>
             state.space_mut().refresh();
             state.popups_mut().cleanup();
             display_handle.flush_clients().unwrap();
-            
-            // Process any pending redraws
-            state.process_redraw_queue();
 
             // Execute startup commands after first successful dispatch
             if !state.startup_done.get() {
@@ -633,7 +631,7 @@ pub fn run_udev(enable_test_ipc: bool) -> Result<(), Box<dyn std::error::Error>>
             }
         }
     }
-    
+
     Ok(())
 }
 
@@ -854,7 +852,9 @@ fn get_surface_dmabuf_feedback(
             })
             .ok()?
     } else {
-        builder.clone().build()
+        builder
+            .clone()
+            .build()
             .map_err(|e| {
                 error!("Failed to build render feedback: {:?}", e);
                 e
@@ -864,7 +864,9 @@ fn get_surface_dmabuf_feedback(
 
     let scanout_feedback = builder
         .add_preference_tranche(
-            surface.device_fd().dev_id()
+            surface
+                .device_fd()
+                .dev_id()
                 .map_err(|e| {
                     error!("Failed to get device id: {:?}", e);
                     e
@@ -888,25 +890,6 @@ fn get_surface_dmabuf_feedback(
 }
 
 impl StilchState<UdevData> {
-    /// Check if any outputs need redraw and trigger renders
-    pub fn process_redraw_queue(&mut self) {
-        let outputs_to_redraw = self.redraw_scheduler.outputs_needing_redraw();
-        
-        for output in outputs_to_redraw {
-            if let Some(udev_id) = output.user_data().get::<UdevOutputId>() {
-                let node = udev_id.device_id;
-                let crtc = udev_id.crtc;
-                
-                
-                // Clear the redraw flag before rendering
-                self.redraw_scheduler.clear_redraw(&output);
-                
-                // Trigger render for this output
-                self.render(node, Some(crtc), self.clock.now());
-            }
-        }
-    }
-
     fn device_added(&mut self, node: DrmNode, path: &Path) -> Result<(), DeviceAddError> {
         // Try to open the device
         let fd = self
@@ -1090,13 +1073,9 @@ impl StilchState<UdevData> {
         // Calculate x position before the mutable borrow
         let x = {
             let space = self.space();
-            space
-                .outputs()
-                .fold(0, |acc, o| {
-                    acc + space.output_geometry(o)
-                        .map(|geo| geo.size.w)
-                        .unwrap_or(0)
-                })
+            space.outputs().fold(0, |acc, o| {
+                acc + space.output_geometry(o).map(|geo| geo.size.w).unwrap_or(0)
+            })
         };
 
         let device = if let Some(device) = self.backend_data.backends.get_mut(&node) {
@@ -1106,11 +1085,7 @@ impl StilchState<UdevData> {
         };
 
         let render_node = device.render_node.unwrap_or(self.backend_data.primary_gpu);
-        let mut renderer = match self
-            .backend_data
-            .gpus
-            .single_renderer(&render_node)
-        {
+        let mut renderer = match self.backend_data.gpus.single_renderer(&render_node) {
             Ok(r) => r,
             Err(e) => {
                 error!("Failed to get single renderer: {:?}", e);
@@ -1502,15 +1477,11 @@ impl StilchState<UdevData> {
 
             // Map the output in the space
             self.space_mut().map_output(&output_ref, position);
-            
-            // Add output to redraw scheduler
-            self.redraw_scheduler.add_output(output_ref.clone());
 
             // Update tiling area for new output
             self.update_tiling_area_from_output();
 
-            // kick-off rendering and queue initial redraw
-            self.queue_redraw(&output_ref);
+            // kick-off rendering
             self.handle.insert_idle(move |state| {
                 state.render_surface(node, crtc, state.clock.now());
             });
@@ -1562,7 +1533,6 @@ impl StilchState<UdevData> {
             }
 
             self.space_mut().unmap_output(&output);
-            self.redraw_scheduler.remove_output(&output);
             self.space_mut().refresh();
         }
 
@@ -1574,11 +1544,7 @@ impl StilchState<UdevData> {
             }
         };
         let render_node = device.render_node.unwrap_or(self.backend_data.primary_gpu);
-        let mut renderer = match self
-            .backend_data
-            .gpus
-            .single_renderer(&render_node)
-        {
+        let mut renderer = match self.backend_data.gpus.single_renderer(&render_node) {
             Ok(r) => r,
             Err(e) => {
                 error!("Failed to get single renderer: {:?}", e);
@@ -1887,11 +1853,10 @@ impl StilchState<UdevData> {
                 Timer::from_duration(repaint_delay)
             };
 
-            if let Err(e) = self.handle
-                .insert_source(timer, move |_, _, data| {
-                    data.render(dev_id, Some(crtc), next_frame_target);
-                    TimeoutAction::Drop
-                }) {
+            if let Err(e) = self.handle.insert_source(timer, move |_, _, data| {
+                data.render(dev_id, Some(crtc), next_frame_target);
+                TimeoutAction::Drop
+            }) {
                 error!("Failed to schedule frame timer: {e}");
                 // Critical: if we can't schedule frames, rendering will stop
             }
@@ -1920,7 +1885,6 @@ impl StilchState<UdevData> {
 
     fn render_surface(&mut self, node: DrmNode, crtc: crtc::Handle, frame_target: Time<Monotonic>) {
         profiling::scope!("render_surface", &format!("{crtc:?}"));
-        
 
         let output = if let Some(output) = self.space().outputs().find(|o| {
             o.user_data().get::<UdevOutputId>()
@@ -2025,12 +1989,10 @@ impl StilchState<UdevData> {
             &tab_bar_data,
         );
         let reschedule = match result {
-            Ok((_has_rendered, states)) => {
+            Ok((has_rendered, states)) => {
                 let dmabuf_feedback = surface.dmabuf_feedback.clone();
                 self.post_repaint(&output, frame_target, dmabuf_feedback, &states);
-                // Don't continuously re-render when idle
-                // Damage events will trigger new renders via queue_redraw
-                false
+                !has_rendered
             }
             Err(err) => {
                 warn!("Error during rendering: {:#?}", err);
@@ -2049,10 +2011,7 @@ impl StilchState<UdevData> {
                             // reset the complete state, disabling all connectors and planes in case we hit a test failed
                             // most likely we hit this after a tty switch when a foreign master changed CRTC <-> connector bindings
                             // and we run in a mismatch
-                            if let Err(e) = device
-                                .drm_output_manager
-                                .device_mut()
-                                .reset_state() {
+                            if let Err(e) = device.drm_output_manager.device_mut().reset_state() {
                                 error!("Failed to reset drm device: {}. Device may be in inconsistent state", e);
                                 // Continue anyway - the device might recover on next frame
                             }
@@ -2086,11 +2045,10 @@ impl StilchState<UdevData> {
                 crtc,
             );
             let timer = Timer::from_duration(reschedule_timeout);
-            if let Err(e) = self.handle
-                .insert_source(timer, move |_, _, data| {
-                    data.render(node, Some(crtc), next_frame_target);
-                    TimeoutAction::Drop
-                }) {
+            if let Err(e) = self.handle.insert_source(timer, move |_, _, data| {
+                data.render(node, Some(crtc), next_frame_target);
+                TimeoutAction::Drop
+            }) {
                 error!("Failed to schedule frame timer for retry: {e}");
                 // Critical: if we can't schedule retry, this output won't render
             }
@@ -2118,14 +2076,16 @@ fn render_surface<'a>(
     show_window_preview: bool,
     tab_bar_data: &[crate::render::TabBarData],
 ) -> Result<(bool, RenderElementStates), SwapBuffersError> {
-    let output_geometry = space.output_geometry(output)
-        .ok_or_else(|| {
-            error!("Failed to get output geometry for output {:?}", output.name());
-            SwapBuffersError::ContextLost(Box::new(std::io::Error::new(
-                std::io::ErrorKind::Other,
-                "Output geometry not found"
-            )))
-        })?;
+    let output_geometry = space.output_geometry(output).ok_or_else(|| {
+        error!(
+            "Failed to get output geometry for output {:?}",
+            output.name()
+        );
+        SwapBuffersError::ContextLost(Box::new(std::io::Error::new(
+            std::io::ErrorKind::Other,
+            "Output geometry not found",
+        )))
+    })?;
     let scale = Scale::from(output.current_scale().fractional_scale());
 
     let mut custom_elements: Vec<CustomRenderElements<_>> = Vec::new();

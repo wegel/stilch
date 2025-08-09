@@ -61,7 +61,7 @@ impl TabTextCache {
     pub fn clear(&mut self) {
         self.cache.clear();
     }
-    
+
     /// Remove old entries to prevent unbounded growth
     /// Call this periodically or when tabs are closed
     #[allow(dead_code)]
@@ -152,8 +152,9 @@ fn render_tab_text(
     drop(cr);
 
     // Get the pixel data
-    let data = surface.take_data()
-        .map_err(|_| std::io::Error::new(std::io::ErrorKind::Other, "Failed to take surface data"))?;
+    let data = surface.take_data().map_err(|_| {
+        std::io::Error::new(std::io::ErrorKind::Other, "Failed to take surface data")
+    })?;
 
     // Create memory buffer using from_slice like smithay does
     let buffer = MemoryRenderBuffer::from_slice(

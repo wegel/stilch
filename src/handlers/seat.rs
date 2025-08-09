@@ -21,10 +21,8 @@ use smithay::{
             KeyboardShortcutsInhibitor,
         },
         pointer_constraints::{with_pointer_constraint, PointerConstraintsHandler},
-        seat::WaylandFocus,  // Trait needed for wl_surface() method
-        selection::{
-            data_device::set_data_device_focus, primary_selection::set_primary_focus,
-        },
+        seat::WaylandFocus, // Trait needed for wl_surface() method
+        selection::{data_device::set_data_device_focus, primary_selection::set_primary_focus},
         tablet_manager::TabletSeatHandler,
     },
 };
@@ -32,7 +30,7 @@ use tracing::warn;
 
 use crate::{
     focus::{KeyboardFocusTarget, PointerFocusTarget},
-    state::{StilchState, Backend},
+    state::{Backend, StilchState},
 };
 
 impl<BackendData: Backend> SeatHandler for StilchState<BackendData> {
@@ -59,7 +57,7 @@ impl<BackendData: Backend> SeatHandler for StilchState<BackendData> {
             set_primary_focus(dh, seat, None);
         }
     }
-    
+
     fn cursor_image(&mut self, _seat: &Seat<Self>, image: CursorImageStatus) {
         self.input_manager.cursor_status = image;
     }
@@ -135,8 +133,13 @@ impl<BackendData: Backend> PointerConstraintsHandler for StilchState<BackendData
             });
         }
     }
-    
-    fn cursor_position_hint(&mut self, _surface: &WlSurface, _pointer: &PointerHandle<Self>, _location: smithay::utils::Point<f64, smithay::utils::Logical>) {
+
+    fn cursor_position_hint(
+        &mut self,
+        _surface: &WlSurface,
+        _pointer: &PointerHandle<Self>,
+        _location: smithay::utils::Point<f64, smithay::utils::Logical>,
+    ) {
         // Handle cursor position hint for pointer constraints
     }
 }

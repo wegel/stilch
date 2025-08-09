@@ -52,7 +52,8 @@ fn nearest_images(size: u32, images: &[Image]) -> Vec<&Image> {
     // Follow the nominal size of the cursor to choose the nearest
     let nearest_image = match images
         .iter()
-        .min_by_key(|image| (size as i32 - image.size as i32).abs()) {
+        .min_by_key(|image| (size as i32 - image.size as i32).abs())
+    {
         Some(img) => img,
         None => {
             // Return empty vec if no images
@@ -60,16 +61,18 @@ fn nearest_images(size: u32, images: &[Image]) -> Vec<&Image> {
         }
     };
 
-    images.iter().filter(|image| {
-        image.width == nearest_image.width && image.height == nearest_image.height
-    }).collect()
+    images
+        .iter()
+        .filter(|image| image.width == nearest_image.width && image.height == nearest_image.height)
+        .collect()
 }
 
 fn frame(mut millis: u32, size: u32, images: &[Image]) -> Image {
     let nearest = nearest_images(size, images);
     let total = nearest.iter().fold(0, |acc, image| acc + image.delay);
     if total == 0 {
-        return nearest.first()
+        return nearest
+            .first()
             .map(|img| (*img).clone())
             .unwrap_or_else(|| Image {
                 size: 24,

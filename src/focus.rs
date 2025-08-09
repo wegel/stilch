@@ -28,7 +28,7 @@ use smithay::{
 
 use crate::{
     shell::{WindowElement, SSD},
-    state::{StilchState, Backend},
+    state::{Backend, StilchState},
 };
 
 #[derive(Debug, Clone, PartialEq)]

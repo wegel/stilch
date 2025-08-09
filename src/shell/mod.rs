@@ -1,5 +1,5 @@
-use std::cell::RefCell;
 use once_cell::sync::Lazy;
+use std::cell::RefCell;
 
 #[cfg(feature = "xwayland")]
 use smithay::xwayland::XWaylandClientData;
@@ -42,7 +42,7 @@ use smithay::{
 };
 
 use crate::{
-    state::{StilchState, Backend},
+    state::{Backend, StilchState},
     ClientState,
 };
 
@@ -80,9 +80,8 @@ impl FullscreenSurface {
 
 // Static poison state for error cases where we can't return a proper state
 // This is better than panicking, but operations using this state may not work correctly
-static POISON_COMPOSITOR_STATE: Lazy<CompositorClientState> = Lazy::new(|| {
-    CompositorClientState::default()
-});
+static POISON_COMPOSITOR_STATE: Lazy<CompositorClientState> =
+    Lazy::new(|| CompositorClientState::default());
 
 impl<BackendData: Backend> BufferHandler for StilchState<BackendData> {
     fn buffer_destroyed(&mut self, _buffer: &WlBuffer) {}
@@ -203,22 +202,6 @@ impl<BackendData: Backend> CompositorHandler for StilchState<BackendData> {
             }
             if let Some(window) = self.window_for_surface(&root) {
                 window.0.on_commit();
-                
-                // Queue redraw for outputs this window is on
-                let window_bbox = self.space().element_bbox(&window);
-                if let Some(bbox) = window_bbox {
-                    let outputs_to_redraw: Vec<_> = self.space().outputs()
-                        .filter(|output| {
-                            self.space().output_geometry(output)
-                                .map(|geo| geo.overlaps(bbox))
-                                .unwrap_or(false)
-                        })
-                        .cloned()
-                        .collect();
-                    for output in outputs_to_redraw {
-                        self.queue_redraw(&output);
-                    }
-                }
 
                 if &root == surface {
                     let buffer_offset = with_states(surface, |states| {
@@ -248,8 +231,10 @@ impl<BackendData: Backend> CompositorHandler for StilchState<BackendData> {
                 // Check all outputs for layer surfaces
                 for output in self.space().outputs().cloned().collect::<Vec<_>>() {
                     let map = layer_map_for_output(&output);
-                    if map.layer_for_surface(&root, WindowSurfaceType::TOPLEVEL).is_some() {
-                        self.queue_redraw(&output);
+                    if map
+                        .layer_for_surface(&root, WindowSurfaceType::TOPLEVEL)
+                        .is_some()
+                    {
                         break;
                     }
                 }
@@ -260,18 +245,6 @@ impl<BackendData: Backend> CompositorHandler for StilchState<BackendData> {
         if matches!(self.cursor_status(), CursorImageStatus::Surface(cursor_surface) if cursor_surface == surface)
         {
             // Queue redraw on output where cursor is
-            let cursor_pos = self.pointer().current_location();
-            let outputs_to_redraw: Vec<_> = self.space().outputs()
-                .filter(|output| {
-                    self.space().output_geometry(output)
-                        .map(|geo| geo.to_f64().contains(cursor_pos))
-                        .unwrap_or(false)
-                })
-                .cloned()
-                .collect();
-            for output in outputs_to_redraw {
-                self.queue_redraw(&output);
-            }
             with_states(surface, |states| {
                 let cursor_image_attributes = states.data_map.get::<CursorImageSurfaceData>();
 
@@ -354,7 +327,6 @@ impl<BackendData: Backend> WlrLayerShellHandler for StilchState<BackendData> {
             tracing::error!("Failed to map layer surface: {:?}", e);
         } else {
             // Queue redraw for the output when a new layer surface is added
-            self.queue_redraw(&output);
         }
     }
 
@@ -811,9 +783,7 @@ fn ensure_initial_configure(
         }
 
         with_states(surface, |states| {
-            let data = states
-                .data_map
-                .get::<RefCell<SurfaceData>>();
+            let data = states.data_map.get::<RefCell<SurfaceData>>();
             if let Some(data) = data {
                 let mut data = data.borrow_mut();
 
@@ -866,8 +836,7 @@ fn ensure_initial_configure(
         map.arrange();
         // send the initial configure if relevant
         if !initial_configure_sent {
-            if let Some(layer) = map
-                .layer_for_surface(surface, WindowSurfaceType::TOPLEVEL) {
+            if let Some(layer) = map.layer_for_surface(surface, WindowSurfaceType::TOPLEVEL) {
                 layer.layer_surface().send_configure();
             }
         }

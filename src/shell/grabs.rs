@@ -22,7 +22,7 @@ use smithay::{utils::Rectangle, xwayland::xwm::ResizeEdge as X11ResizeEdge};
 use super::{SurfaceData, WindowElement};
 use crate::{
     focus::PointerFocusTarget,
-    state::{StilchState, Backend},
+    state::{Backend, StilchState},
 };
 
 pub struct PointerMoveSurfaceGrab<BackendData: Backend + 'static> {
@@ -50,21 +50,8 @@ impl<BackendData: Backend> PointerGrab<StilchState<BackendData>>
         // Use centralized window manager for position updates
         data.window_manager
             .update_element_position(&self.window, new_location.to_i32_round());
-        
+
         // Queue redraw for affected outputs
-        if let Some(bbox) = data.space().element_bbox(&self.window) {
-            let outputs_to_redraw: Vec<_> = data.space().outputs()
-                .filter(|output| {
-                    data.space().output_geometry(output)
-                        .map(|geo| geo.overlaps(bbox))
-                        .unwrap_or(false)
-                })
-                .cloned()
-                .collect();
-            for output in outputs_to_redraw {
-                data.queue_redraw(&output);
-            }
-        }
     }
 
     fn relative_motion(
@@ -266,21 +253,8 @@ impl<BackendData: Backend> TouchGrab<StilchState<BackendData>>
         // Use centralized window manager for position updates
         data.window_manager
             .update_element_position(&self.window, new_location.to_i32_round());
-        
+
         // Queue redraw for affected outputs
-        if let Some(bbox) = data.space().element_bbox(&self.window) {
-            let outputs_to_redraw: Vec<_> = data.space().outputs()
-                .filter(|output| {
-                    data.space().output_geometry(output)
-                        .map(|geo| geo.overlaps(bbox))
-                        .unwrap_or(false)
-                })
-                .cloned()
-                .collect();
-            for output in outputs_to_redraw {
-                data.queue_redraw(&output);
-            }
-        }
     }
 
     fn frame(
@@ -846,9 +820,7 @@ impl<BackendData: Backend> TouchGrab<StilchState<BackendData>>
 
                 if let Some(wl_surface) = self.window.wl_surface() {
                     with_states(&wl_surface, |states| {
-                        if let Some(surface_data) = states
-                            .data_map
-                            .get::<RefCell<SurfaceData>>() {
+                        if let Some(surface_data) = states.data_map.get::<RefCell<SurfaceData>>() {
                             let mut data = surface_data.borrow_mut();
                             if let ResizeState::Resizing(resize_data) = data.resize_state {
                                 data.resize_state =
@@ -864,11 +836,13 @@ impl<BackendData: Backend> TouchGrab<StilchState<BackendData>>
             }
             #[cfg(feature = "xwayland")]
             WindowSurface::X11(x11) => {
-                let mut location = data.space().element_location(&self.window)
-                    .unwrap_or_else(|| {
-                        tracing::warn!("Window has no location, using origin");
-                        Point::from((0, 0))
-                    });
+                let mut location =
+                    data.space()
+                        .element_location(&self.window)
+                        .unwrap_or_else(|| {
+                            tracing::warn!("Window has no location, using origin");
+                            Point::from((0, 0))
+                        });
                 if self.edges.intersects(ResizeEdge::TOP_LEFT) {
                     let geometry = self.window.geometry();
 
@@ -893,17 +867,15 @@ impl<BackendData: Backend> TouchGrab<StilchState<BackendData>>
                     return;
                 };
                 with_states(&surface, |states| {
-                    if let Some(surface_data) = states
-                        .data_map
-                        .get::<RefCell<SurfaceData>>() {
+                    if let Some(surface_data) = states.data_map.get::<RefCell<SurfaceData>>() {
                         let mut data = surface_data.borrow_mut();
-                    if let ResizeState::Resizing(resize_data) = data.resize_state {
-                        data.resize_state = ResizeState::WaitingForCommit(resize_data);
-                    } else {
-                        tracing::error!("Invalid resize state: {:?}", data.resize_state);
-                        // Reset to idle state to recover
-                        data.resize_state = ResizeState::NotResizing;
-                    }
+                        if let ResizeState::Resizing(resize_data) = data.resize_state {
+                            data.resize_state = ResizeState::WaitingForCommit(resize_data);
+                        } else {
+                            tracing::error!("Invalid resize state: {:?}", data.resize_state);
+                            // Reset to idle state to recover
+                            data.resize_state = ResizeState::NotResizing;
+                        }
                     }
                 });
             }

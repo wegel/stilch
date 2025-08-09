@@ -48,7 +48,7 @@ use smithay::{
 };
 use tracing::{error, info, warn};
 
-use crate::state::{take_presentation_feedback, StilchState, Backend};
+use crate::state::{take_presentation_feedback, Backend, StilchState};
 use crate::{drawing::*, render::*};
 
 pub const OUTPUT_NAME: &str = "winit";
@@ -169,8 +169,7 @@ pub fn run_winit() -> Result<(), Box<dyn std::error::Error>> {
     let dmabuf_default_feedback = match render_node {
         Ok(Some(node)) => {
             let dmabuf_formats = backend.renderer().dmabuf_formats();
-            match DmabufFeedbackBuilder::new(node.dev_id(), dmabuf_formats)
-                .build() {
+            match DmabufFeedbackBuilder::new(node.dev_id(), dmabuf_formats).build() {
                 Ok(feedback) => Some(feedback),
                 Err(e) => {
                     warn!("Failed to build dmabuf feedback: {e}");

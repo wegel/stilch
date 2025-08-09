@@ -63,7 +63,6 @@ use crate::{
     event::{ipc_handler::IpcEventHandler, EventBus},
     focus::KeyboardFocusTarget, // Import handlers module
     ipc::IpcServer,
-    redraw::RedrawScheduler,
     shell::WindowElement,
     virtual_output::VirtualOutputManager,
 };
@@ -116,9 +115,6 @@ pub struct StilchState<BackendData: Backend + 'static> {
 
     // Event system
     pub event_bus: EventBus,
-
-    // Redraw scheduler
-    pub redraw_scheduler: RedrawScheduler,
 
     // Command executor for undo/redo support
     pub command_executor: CommandExecutor<BackendData>,
@@ -365,7 +361,6 @@ impl<BackendData: Backend + 'static> StilchState<BackendData> {
             workspace_manager: crate::workspace::WorkspaceManager::new(inner_gap),
             input_manager,
             event_bus: EventBus::new(),
-            redraw_scheduler: RedrawScheduler::new(),
             command_executor: CommandExecutor::new(),
             seat_name,
             clock,
@@ -1195,14 +1190,6 @@ impl<BackendData: Backend + 'static> StilchState<BackendData> {
 
             // Update IPC state (the event handler will do this now, but keep for backwards compatibility)
             self.update_ipc_workspace_state();
-
-            // Queue redraw for physical outputs associated with this virtual output
-            if let Some(vo) = self.virtual_output_manager.get(virtual_output_id) {
-                let outputs_to_redraw: Vec<_> = vo.physical_outputs().to_vec();
-                for physical_output in outputs_to_redraw {
-                    self.queue_redraw(&physical_output);
-                }
-            }
         }
     }
 
@@ -1444,7 +1431,7 @@ impl<BackendData: Backend + 'static> StilchState<BackendData> {
 
                 // Queue redraw for outputs where the new window is visible
                 if let Some(bbox) = self.space().element_bbox(&window) {
-                    let outputs_to_redraw: Vec<_> = self
+                    let _outputs_to_redraw: Vec<_> = self
                         .space()
                         .outputs()
                         .filter(|output| {
@@ -1455,9 +1442,6 @@ impl<BackendData: Backend + 'static> StilchState<BackendData> {
                         })
                         .cloned()
                         .collect();
-                    for output in outputs_to_redraw {
-                        self.queue_redraw(&output);
-                    }
                 }
             }
         }
@@ -1505,7 +1489,7 @@ impl<BackendData: Backend + 'static> StilchState<BackendData> {
 
             // Queue redraw for outputs affected by focus change
             if let Some(bbox) = self.space().element_bbox(window) {
-                let outputs_to_redraw: Vec<_> = self
+                let _outputs_to_redraw: Vec<_> = self
                     .space()
                     .outputs()
                     .filter(|output| {
@@ -1516,9 +1500,6 @@ impl<BackendData: Backend + 'static> StilchState<BackendData> {
                     })
                     .cloned()
                     .collect();
-                for output in outputs_to_redraw {
-                    self.queue_redraw(&output);
-                }
             }
 
             // Update workspace's focused_window tracking
@@ -2669,22 +2650,6 @@ impl<BackendData: Backend> StilchState<BackendData> {
         let events = self.window_manager.batch_update_positions(position_updates);
         for event in events {
             self.event_bus.emit_window(event);
-        }
-    }
-
-    /// Queue a redraw for a specific output
-    pub fn queue_redraw(&mut self, output: &Output) {
-        tracing::trace!("Queuing redraw for output {}", output.name());
-        // Queue the redraw
-        self.redraw_scheduler.queue_redraw(output);
-        // Backend-specific rendering will be triggered separately
-    }
-
-    /// Queue redraws for all outputs
-    pub fn queue_redraw_all(&mut self) {
-        let outputs: Vec<_> = self.space().outputs().cloned().collect();
-        for output in outputs {
-            self.queue_redraw(&output);
         }
     }
 }

@@ -11,7 +11,7 @@ use std::num::NonZeroU64;
 use std::sync::atomic::{AtomicU64, Ordering};
 
 /// Unique identifier for windows
-/// 
+///
 /// This ID is guaranteed to be:
 /// - Non-zero (can use Option<WindowId> without overhead)
 /// - Unique within the compositor lifetime
@@ -26,7 +26,7 @@ static WINDOW_ID_COUNTER: AtomicU64 = AtomicU64::new(1);
 
 impl WindowId {
     /// Generate a new unique window ID
-    /// 
+    ///
     /// This is guaranteed to never return the same ID twice
     /// within a single compositor session
     pub fn next() -> Self {
@@ -36,14 +36,14 @@ impl WindowId {
     }
 
     /// Create a WindowId from a raw value
-    /// 
+    ///
     /// Returns None if the value is zero
     pub fn from_raw(id: u64) -> Option<Self> {
         NonZeroU64::new(id).map(WindowId)
     }
 
     /// Create a WindowId for testing
-    /// 
+    ///
     /// # Panics
     /// Panics if id is zero
     pub fn new(id: u32) -> Self {

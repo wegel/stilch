@@ -16,7 +16,7 @@ use smithay::backend::input::{Device, InputBackend, InputEvent};
 use smithay::reexports::wayland_server::DisplayHandle;
 use smithay::wayland::tablet_manager::TabletSeatTrait;
 
-use crate::state::{StilchState, Backend};
+use crate::state::{Backend, StilchState};
 
 impl<BackendData: Backend> StilchState<BackendData> {
     /// Process input events for windowed backends (winit/x11)

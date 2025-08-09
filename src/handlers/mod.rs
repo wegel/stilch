@@ -4,7 +4,7 @@
 //! These are separated from the main state module for better organization.
 
 pub mod data_device;
-pub mod seat;
 pub mod misc;
+pub mod seat;
 
 // Re-export handler implementations

@@ -113,7 +113,8 @@ fn parse_key_combo(
     }
 
     let mut modifiers = ModifiersState::default();
-    let key_part = parts.last()
+    let key_part = parts
+        .last()
         // SAFETY: split always produces at least one part
         .expect("split always produces at least one part");
 

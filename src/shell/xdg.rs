@@ -29,7 +29,7 @@ use tracing::{debug, error, info, trace, warn};
 use crate::{
     focus::KeyboardFocusTarget,
     shell::TouchMoveSurfaceGrab,
-    state::{StilchState, Backend},
+    state::{Backend, StilchState},
 };
 
 use super::{PointerMoveSurfaceGrab, ResizeEdge, ResizeState, SurfaceData, WindowElement};
@@ -476,11 +476,11 @@ impl<BackendData: Backend> XdgShellHandler for StilchState<BackendData> {
 
                 if configure.serial >= serial && is_resizing {
                     with_states(&surface, |states| {
-                        if let Some(surface_data) = states
-                            .data_map
-                            .get::<RefCell<SurfaceData>>() {
+                        if let Some(surface_data) = states.data_map.get::<RefCell<SurfaceData>>() {
                             let mut data = surface_data.borrow_mut();
-                            if let ResizeState::WaitingForFinalAck(resize_data, _) = data.resize_state {
+                            if let ResizeState::WaitingForFinalAck(resize_data, _) =
+                                data.resize_state
+                            {
                                 data.resize_state = ResizeState::WaitingForCommit(resize_data);
                             } else {
                                 tracing::error!("Unexpected resize state during ack_configure");

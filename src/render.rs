@@ -23,7 +23,7 @@ use crate::drawing::FpsElement;
 use crate::{
     drawing::{PointerRenderElement, CLEAR_COLOR, CLEAR_COLOR_FULLSCREEN},
     shell::{FullscreenSurface, WindowElement, WindowRenderElement},
-    state::{StilchState, Backend},
+    state::{Backend, StilchState},
 };
 
 smithay::backend::renderer::element::render_elements! {

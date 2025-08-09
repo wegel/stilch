@@ -6,7 +6,7 @@ use std::{
 use crate::{
     drawing::*,
     render::*,
-    state::{take_presentation_feedback, StilchState, Backend},
+    state::{take_presentation_feedback, Backend, StilchState},
 };
 #[cfg(feature = "egl")]
 use smithay::backend::renderer::ImportEgl;
@@ -116,8 +116,7 @@ pub fn run_x11() -> Result<(), Box<dyn std::error::Error>> {
     let handle = backend.handle();
 
     // Obtain the DRM node the X server uses for direct rendering.
-    let (node, fd) = handle
-        .drm_node()?;
+    let (node, fd) = handle.drm_node()?;
 
     // Create the gbm device for buffer allocation.
     let device = gbm::Device::new(DeviceFd::from(fd))?;
@@ -126,10 +125,7 @@ pub fn run_x11() -> Result<(), Box<dyn std::error::Error>> {
     // Create the OpenGL context
     let context = EGLContext::new(&egl)?;
 
-    let window = WindowBuilder::new()
-        .title("Stilch")
-        .build(&handle)
-        ?;
+    let window = WindowBuilder::new().title("Stilch").build(&handle)?;
 
     let skip_vulkan = std::env::var("ANVIL_NO_VULKAN")
         .map(|x| {
@@ -168,31 +164,26 @@ pub fn run_x11() -> Result<(), Box<dyn std::error::Error>> {
 
     let surface = match vulkan_allocator {
         // Create the surface for the window.
-        Some(vulkan_allocator) => handle
-            .create_surface(
-                &window,
-                DmabufAllocator(vulkan_allocator),
-                context
-                    .dmabuf_render_formats()
-                    .iter()
-                    .map(|format| format.modifier),
-            )
-            ?,
-        None => handle
-            .create_surface(
-                &window,
-                DmabufAllocator(GbmAllocator::new(device, GbmBufferFlags::RENDERING)),
-                context
-                    .dmabuf_render_formats()
-                    .iter()
-                    .map(|format| format.modifier),
-            )
-            ?,
+        Some(vulkan_allocator) => handle.create_surface(
+            &window,
+            DmabufAllocator(vulkan_allocator),
+            context
+                .dmabuf_render_formats()
+                .iter()
+                .map(|format| format.modifier),
+        )?,
+        None => handle.create_surface(
+            &window,
+            DmabufAllocator(GbmAllocator::new(device, GbmBufferFlags::RENDERING)),
+            context
+                .dmabuf_render_formats()
+                .iter()
+                .map(|format| format.modifier),
+        )?,
     };
 
     #[cfg_attr(not(feature = "egl"), allow(unused_mut))]
-    let mut renderer =
-        unsafe { GlesRenderer::new(context)? };
+    let mut renderer = unsafe { GlesRenderer::new(context)? };
 
     #[cfg(feature = "egl")]
     if renderer.bind_wl_display(&display.handle()).is_ok() {

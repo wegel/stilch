@@ -11,9 +11,7 @@ use smithay::{
     wayland::{
         fractional_scale::FractionalScaleHandler,
         output::OutputHandler,
-        security_context::{
-            SecurityContext, SecurityContextHandler,
-        },
+        security_context::{SecurityContext, SecurityContextHandler},
         selection::{
             primary_selection::{PrimarySelectionHandler, PrimarySelectionState},
             wlr_data_control::{DataControlHandler, DataControlState},
@@ -29,8 +27,7 @@ use smithay::{
 };
 use tracing::warn;
 
-
-use crate::state::{StilchState, Backend};
+use crate::state::{Backend, StilchState};
 
 impl<BackendData: Backend> OutputHandler for StilchState<BackendData> {}
 
@@ -103,7 +100,8 @@ impl<BackendData: Backend> XdgActivationHandler for StilchState<BackendData> {
                 .space()
                 .elements()
                 .find(|window| {
-                    window.wl_surface()
+                    window
+                        .wl_surface()
                         .map(|s| s.as_ref() == &surface)
                         .unwrap_or(false)
                 })
@@ -115,14 +113,17 @@ impl<BackendData: Backend> XdgActivationHandler for StilchState<BackendData> {
             tracing::info!("Activation request was too old, ignoring");
         }
     }
-
 }
 
 impl<BackendData: Backend> XdgDecorationHandler for StilchState<BackendData> {
     fn new_decoration(&mut self, _toplevel: smithay::wayland::shell::xdg::ToplevelSurface) {
         // Automatically configure server-side decorations
     }
-    fn request_mode(&mut self, _toplevel: smithay::wayland::shell::xdg::ToplevelSurface, _mode: smithay::reexports::wayland_protocols::xdg::decoration::zv1::server::zxdg_toplevel_decoration_v1::Mode) {
+    fn request_mode(
+        &mut self,
+        _toplevel: smithay::wayland::shell::xdg::ToplevelSurface,
+        _mode: smithay::reexports::wayland_protocols::xdg::decoration::zv1::server::zxdg_toplevel_decoration_v1::Mode,
+    ) {
         // Always use server-side decorations
     }
     fn unset_mode(&mut self, _toplevel: smithay::wayland::shell::xdg::ToplevelSurface) {
@@ -133,22 +134,23 @@ impl<BackendData: Backend> XdgDecorationHandler for StilchState<BackendData> {
 impl<BackendData: Backend> FractionalScaleHandler for StilchState<BackendData> {
     fn new_fractional_scale(&mut self, surface: WlSurface) {
         // find the matching window and output
-        let window = self
-            .space()
-            .elements()
-            .find(|window| {
-                window.wl_surface()
-                    .map(|s| s.as_ref() == &surface)
-                    .unwrap_or(false)
-            });
+        let window = self.space().elements().find(|window| {
+            window
+                .wl_surface()
+                .map(|s| s.as_ref() == &surface)
+                .unwrap_or(false)
+        });
         if let Some(window) = window {
             if let Some(output) = self.space().outputs_for_element(window).first() {
                 use smithay::wayland::compositor::with_states;
                 let scale = output.current_scale().fractional_scale();
                 with_states(&surface, |data| {
-                    smithay::wayland::fractional_scale::with_fractional_scale(data, |fractional_scale| {
-                        fractional_scale.set_preferred_scale(scale);
-                    });
+                    smithay::wayland::fractional_scale::with_fractional_scale(
+                        data,
+                        |fractional_scale| {
+                            fractional_scale.set_preferred_scale(scale);
+                        },
+                    );
                 });
             }
         }

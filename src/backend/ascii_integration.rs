@@ -196,7 +196,8 @@ pub fn run_ascii_test_mode() {
 
     // Add windows to backend
     {
-        let mut backend = backend.lock()
+        let mut backend = backend
+            .lock()
             .expect("Test backend lock should not be poisoned");
         for window in test_windows {
             backend.update_window(window);
@@ -206,25 +207,35 @@ pub fn run_ascii_test_mode() {
 
     // Render and display
     println!("\n=== 3 Windows Tiled Vertically (Window 1 Focused) ===\n");
-    println!("{}", backend.lock()
-        .expect("Test backend lock should not be poisoned")
-        .render());
+    println!(
+        "{}",
+        backend
+            .lock()
+            .expect("Test backend lock should not be poisoned")
+            .render()
+    );
 
     // Change focus
     {
-        let mut backend = backend.lock()
+        let mut backend = backend
+            .lock()
             .expect("Test backend lock should not be poisoned");
         backend.set_focus(Some(WindowId::new(2)));
     }
 
     println!("\n=== Same Layout with Window 2 Focused ===\n");
-    println!("{}", backend.lock()
-        .expect("Test backend lock should not be poisoned")
-        .render());
+    println!(
+        "{}",
+        backend
+            .lock()
+            .expect("Test backend lock should not be poisoned")
+            .render()
+    );
 
     // Change to horizontal layout
     {
-        let mut backend = backend.lock()
+        let mut backend = backend
+            .lock()
             .expect("Test backend lock should not be poisoned");
         match backend.windows.lock() {
             Ok(mut windows) => windows.clear(),
@@ -268,13 +279,18 @@ pub fn run_ascii_test_mode() {
     }
 
     println!("\n=== Horizontal Layout (Window 2 Focused) ===\n");
-    println!("{}", backend.lock()
-        .expect("Test backend lock should not be poisoned")
-        .render());
+    println!(
+        "{}",
+        backend
+            .lock()
+            .expect("Test backend lock should not be poisoned")
+            .render()
+    );
 
     // Fullscreen example
     {
-        let mut backend = backend.lock()
+        let mut backend = backend
+            .lock()
             .expect("Test backend lock should not be poisoned");
         match backend.windows.lock() {
             Ok(mut windows) => windows.clear(),
@@ -296,13 +312,18 @@ pub fn run_ascii_test_mode() {
     }
 
     println!("\n=== Fullscreen Window ===\n");
-    println!("{}", backend.lock()
-        .expect("Test backend lock should not be poisoned")
-        .render());
+    println!(
+        "{}",
+        backend
+            .lock()
+            .expect("Test backend lock should not be poisoned")
+            .render()
+    );
 
     // Floating window example
     {
-        let mut backend = backend.lock()
+        let mut backend = backend
+            .lock()
             .expect("Test backend lock should not be poisoned");
         match backend.windows.lock() {
             Ok(mut windows) => windows.clear(),
@@ -345,7 +366,11 @@ pub fn run_ascii_test_mode() {
     }
 
     println!("\n=== Floating Window Over Tiled Windows ===\n");
-    println!("{}", backend.lock()
-        .expect("Test backend lock should not be poisoned")
-        .render());
+    println!(
+        "{}",
+        backend
+            .lock()
+            .expect("Test backend lock should not be poisoned")
+            .render()
+    );
 }

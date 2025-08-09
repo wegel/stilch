@@ -196,20 +196,6 @@ impl StilchState<crate::udev::UdevData> {
             pointer.frame(self);
 
             // Still need to redraw for cursor changes
-            let outputs_to_redraw: Vec<_> = self
-                .space()
-                .outputs()
-                .filter(|output| {
-                    self.space()
-                        .output_geometry(output)
-                        .map(|geo| geo.to_f64().contains(pointer_location))
-                        .unwrap_or(false)
-                })
-                .cloned()
-                .collect();
-            for output in outputs_to_redraw {
-                self.queue_redraw(&output);
-            }
             return;
         }
 
@@ -241,20 +227,6 @@ impl StilchState<crate::udev::UdevData> {
         pointer.frame(self);
 
         // Queue redraw for outputs where cursor is visible
-        let outputs_to_redraw: Vec<_> = self
-            .space()
-            .outputs()
-            .filter(|output| {
-                self.space()
-                    .output_geometry(output)
-                    .map(|geo| geo.to_f64().contains(pointer_location))
-                    .unwrap_or(false)
-            })
-            .cloned()
-            .collect();
-        for output in outputs_to_redraw {
-            self.queue_redraw(&output);
-        }
     }
 
     /// Handle absolute pointer motion
@@ -309,20 +281,6 @@ impl StilchState<crate::udev::UdevData> {
         pointer.frame(self);
 
         // Queue redraw for outputs where cursor is visible
-        let outputs_to_redraw: Vec<_> = self
-            .space()
-            .outputs()
-            .filter(|output| {
-                self.space()
-                    .output_geometry(output)
-                    .map(|geo| geo.to_f64().contains(location))
-                    .unwrap_or(false)
-            })
-            .cloned()
-            .collect();
-        for output in outputs_to_redraw {
-            self.queue_redraw(&output);
-        }
     }
 }
 

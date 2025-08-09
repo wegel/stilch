@@ -45,7 +45,6 @@ pub mod handlers;
 pub mod input;
 pub mod ipc;
 pub mod keybindings;
-pub mod redraw;
 pub mod render;
 pub mod shell;
 pub mod state;
@@ -63,4 +62,4 @@ pub mod workspace;
 #[cfg(feature = "x11")]
 pub mod x11;
 
-pub use state::{StilchState, ClientState};
+pub use state::{ClientState, StilchState};

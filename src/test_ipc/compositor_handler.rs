@@ -32,9 +32,12 @@ impl<BackendData: crate::state::Backend + 'static> CompositorTestHandler<Backend
         // Create ASCII backend with the virtual output size
         let ascii = {
             let state = state.lock().unwrap();
-            let size = if let Some(vo) = state.virtual_output_manager.list_virtual_outputs()
+            let size = if let Some(vo) = state
+                .virtual_output_manager
+                .list_virtual_outputs()
                 .first()
-                .and_then(|id| state.virtual_output_manager.get(*id)) {
+                .and_then(|id| state.virtual_output_manager.get(*id))
+            {
                 let region = vo.logical_region();
                 Size::from((region.size.w, region.size.h))
             } else {
@@ -60,7 +63,9 @@ impl<BackendData: crate::state::Backend + 'static> CompositorTestHandler<Backend
         ascii.windows.lock().unwrap().clear();
 
         // Get the active virtual output
-        let virtual_output_id = state.virtual_output_manager.list_virtual_outputs()
+        let virtual_output_id = state
+            .virtual_output_manager
+            .list_virtual_outputs()
             .first()
             .copied()
             .unwrap_or_else(|| VirtualOutputId::new(1)); // TODO: Support multiple outputs
@@ -120,7 +125,9 @@ impl<BackendData: crate::state::Backend + 'static> CompositorTestHandler<Backend
         let mut state = self.state.lock().unwrap();
 
         // Get current virtual output and workspace
-        let virtual_output_id = state.virtual_output_manager.list_virtual_outputs()
+        let virtual_output_id = state
+            .virtual_output_manager
+            .list_virtual_outputs()
             .first()
             .copied()
             .unwrap_or_else(|| VirtualOutputId::new(1));
@@ -274,7 +281,9 @@ impl<BackendData: crate::state::Backend + 'static> TestCommandHandler
 
             TestCommand::SwitchWorkspace { index } => {
                 let mut state = self.state.lock().unwrap();
-                let virtual_output_id = state.virtual_output_manager.list_virtual_outputs()
+                let virtual_output_id = state
+                    .virtual_output_manager
+                    .list_virtual_outputs()
                     .first()
                     .copied()
                     .unwrap_or_else(|| VirtualOutputId::new(1));

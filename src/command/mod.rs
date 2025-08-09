@@ -4,7 +4,7 @@
 //! in the compositor, enabling undo/redo and better action composition.
 
 use crate::{
-    state::{StilchState, Backend},
+    state::{Backend, StilchState},
     virtual_output::VirtualOutputId,
     window::WindowId,
     workspace::WorkspaceId,

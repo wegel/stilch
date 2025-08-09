@@ -7,7 +7,7 @@ mod protocols;
 pub mod validation;
 
 pub use main::{
-    take_presentation_feedback, update_primary_scanout_output, StilchState, Backend, ClientState,
-    DndIcon, SurfaceDmabufFeedback,
+    take_presentation_feedback, update_primary_scanout_output, Backend, ClientState, DndIcon,
+    StilchState, SurfaceDmabufFeedback,
 };
 pub use protocols::ProtocolState;
