@@ -135,23 +135,19 @@ pub enum TestCommand {
     FocusWindow { id: u64 },
 
     /// Move focus in a direction
-    MoveFocus {
-        direction: Direction,
-    },
+    MoveFocus { direction: Direction },
+
+    /// Click at a specific location
+    ClickAt { x: i32, y: i32 },
 
     /// Move a window in a direction (swap positions)
-    MoveWindow {
-        id: u64,
-        direction: Direction,
-    },
+    MoveWindow { id: u64, direction: Direction },
 
     /// Resize a window
     ResizeWindow { id: u64, width: i32, height: i32 },
 
     /// Set split direction for next window
-    SetSplitDirection {
-        direction: SplitDirection,
-    },
+    SetSplitDirection { direction: SplitDirection },
 
     /// Switch to a workspace
     SwitchWorkspace { index: usize },
@@ -187,14 +183,10 @@ pub enum TestCommand {
     GetOutputs,
 
     /// Set layout mode for current container
-    SetLayout {
-        mode: LayoutMode,
-    },
+    SetLayout { mode: LayoutMode },
 
     /// Move workspace to output in direction
-    MoveWorkspaceToOutput {
-        direction: Direction,
-    },
+    MoveWorkspaceToOutput { direction: Direction },
 
     /// Simulate key press
     KeyPress {

@@ -42,12 +42,14 @@ impl TestEnv {
         // Create a unique IPC socket path for this test
         let ipc_socket = format!("/tmp/stilch-ipc-{}.sock", self.test_name);
 
-        let env_vars = [("STILCH_TEST_SOCKET", self.test_socket.as_str()),
+        let env_vars = [
+            ("STILCH_TEST_SOCKET", self.test_socket.as_str()),
             ("STILCH_IPC_SOCKET", ipc_socket.as_str()),
             ("STILCH_WAYLAND_SOCKET", self.wayland_display.as_str()),
             ("WAYLAND_DISPLAY", self.wayland_display.as_str()),
             ("XDG_RUNTIME_DIR", "/run/user/1000"),
-            ("RUST_LOG", "warn")];
+            ("RUST_LOG", "warn"),
+        ];
 
         println!("Starting compositor for test '{}'...", self.test_name);
         let child = Command::new("target/debug/stilch")
@@ -216,6 +218,25 @@ impl TestClient {
         Ok(())
     }
 
+    /// Click at a specific location
+    pub fn click_at(&self, x: i32, y: i32) -> Result<(), Box<dyn std::error::Error>> {
+        let response = self.send_command(&serde_json::json!({
+            "type": "ClickAt",
+            "x": x,
+            "y": y
+        }))?;
+
+        if response.get("type").and_then(|t| t.as_str()) == Some("Error") {
+            return Err(response
+                .get("message")
+                .and_then(|m| m.as_str())
+                .unwrap_or("Unknown error")
+                .into());
+        }
+
+        Ok(())
+    }
+
     /// Get ASCII snapshot
     pub fn get_ascii_snapshot(
         &self,
@@ -271,9 +292,7 @@ impl TestClient {
             }
 
             if i == 49 {
-                return Err(
-                    format!("Failed to get focus on window {window_id} {context}").into(),
-                );
+                return Err(format!("Failed to get focus on window {window_id} {context}").into());
             }
             thread::sleep(Duration::from_millis(100));
         }

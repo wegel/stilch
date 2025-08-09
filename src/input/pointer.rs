@@ -18,7 +18,7 @@ use tracing::debug;
 
 use crate::{
     focus::PointerFocusTarget,
-    state::{StilchState, Backend},
+    state::{Backend, StilchState},
 };
 
 impl<BackendData: Backend> StilchState<BackendData> {
@@ -194,11 +194,14 @@ impl StilchState<crate::udev::UdevData> {
                 },
             );
             pointer.frame(self);
-            
+
             // Still need to redraw for cursor changes
-            let outputs_to_redraw: Vec<_> = self.space().outputs()
+            let outputs_to_redraw: Vec<_> = self
+                .space()
+                .outputs()
                 .filter(|output| {
-                    self.space().output_geometry(output)
+                    self.space()
+                        .output_geometry(output)
                         .map(|geo| geo.to_f64().contains(pointer_location))
                         .unwrap_or(false)
                 })
@@ -214,14 +217,19 @@ impl StilchState<crate::udev::UdevData> {
 
         // clamp to screen limits
         let max_x = self.space().outputs().fold(0, |acc, o| {
-            acc + self.space().output_geometry(o).map(|g| g.size.w).unwrap_or(0)
+            acc + self
+                .space()
+                .output_geometry(o)
+                .map(|g| g.size.w)
+                .unwrap_or(0)
         });
         let clamped_x = pointer_location.x.clamp(0.0, max_x as f64);
         let max_y = self
             .space()
             .outputs()
             .find(|o| {
-                self.space().output_geometry(o)
+                self.space()
+                    .output_geometry(o)
                     .map(|geo| geo.contains(Point::from((clamped_x as i32, 0))))
                     .unwrap_or(false)
             })
@@ -253,11 +261,14 @@ impl StilchState<crate::udev::UdevData> {
             },
         );
         pointer.frame(self);
-        
+
         // Queue redraw for outputs where cursor is visible
-        let outputs_to_redraw: Vec<_> = self.space().outputs()
+        let outputs_to_redraw: Vec<_> = self
+            .space()
+            .outputs()
             .filter(|output| {
-                self.space().output_geometry(output)
+                self.space()
+                    .output_geometry(output)
                     .map(|geo| geo.to_f64().contains(pointer_location))
                     .unwrap_or(false)
             })
@@ -277,7 +288,11 @@ impl StilchState<crate::udev::UdevData> {
         let serial = SCOUNTER.next_serial();
 
         let max_x = self.space().outputs().fold(0, |acc, o| {
-            acc + self.space().output_geometry(o).map(|g| g.size.w).unwrap_or(0)
+            acc + self
+                .space()
+                .output_geometry(o)
+                .map(|g| g.size.w)
+                .unwrap_or(0)
         });
 
         let pos = evt.position();
@@ -296,11 +311,14 @@ impl StilchState<crate::udev::UdevData> {
             },
         );
         pointer.frame(self);
-        
+
         // Queue redraw for outputs where cursor is visible
-        let outputs_to_redraw: Vec<_> = self.space().outputs()
+        let outputs_to_redraw: Vec<_> = self
+            .space()
+            .outputs()
             .filter(|output| {
-                self.space().output_geometry(output)
+                self.space()
+                    .output_geometry(output)
                     .map(|geo| geo.to_f64().contains(location))
                     .unwrap_or(false)
             })
@@ -315,6 +333,7 @@ impl StilchState<crate::udev::UdevData> {
 impl<BackendData: Backend> StilchState<BackendData> {
     /// Update keyboard focus when pointer is clicked
     pub(crate) fn update_keyboard_focus(&mut self, location: Point<f64, Logical>, serial: Serial) {
+        tracing::info!("update_keyboard_focus called at location: {:?}", location);
         let keyboard = match self.seat().get_keyboard() {
             Some(kb) => kb,
             None => {
@@ -328,6 +347,7 @@ impl<BackendData: Backend> StilchState<BackendData> {
         // So for example if a user clicks on a subsurface or popup the toplevel
         // will receive the keyboard focus.
         let target = self.surface_under(location);
+        tracing::info!("Surface under location: {:?}", target.is_some());
         if let Some((target, _loc)) = target {
             debug!("Focusing on {:?}", target);
             // If a parent surface has a keyboard grab, this prohibits changing keyboard focus
@@ -359,38 +379,48 @@ impl<BackendData: Backend> StilchState<BackendData> {
 
             // Check if clicked surface has a keyboard grab
             if !keyboard.is_grabbed() {
-                // Convert PointerFocusTarget to KeyboardFocusTarget if possible
-                let keyboard_target = match &target {
+                // Find the window element that was clicked
+                let window_element = match &target {
                     PointerFocusTarget::WlSurface(surface) => {
-                        // Try to find the corresponding keyboard focus target
-                        if let Some(window) = self.space().elements().find(|w| {
-                            w.wl_surface()
-                                .map(|s| s.as_ref() == surface)
-                                .unwrap_or(false)
-                        }) {
-                            Some(crate::focus::KeyboardFocusTarget::from(window.clone()))
-                        } else {
-                            None
-                        }
+                        // Get the toplevel surface in case we clicked on a subsurface
+                        let toplevel = target.toplevel_surface().unwrap_or_else(|| surface.clone());
+
+                        // Try to find the corresponding window
+                        let found = self
+                            .space()
+                            .elements()
+                            .find(|w| {
+                                w.wl_surface()
+                                    .map(|s| s.as_ref() == &toplevel)
+                                    .unwrap_or(false)
+                            })
+                            .cloned();
+                        tracing::info!("Found window for WlSurface: {:?}", found.is_some());
+                        found
                     }
                     #[cfg(feature = "xwayland")]
                     PointerFocusTarget::X11Surface(surface) => {
-                        // Try to find the corresponding keyboard focus target for X11 surface
-                        if let Some(window) = self
+                        // Try to find the corresponding window for X11 surface
+                        let found = self
                             .space()
                             .elements()
                             .find(|w| w.0.x11_surface().map(|s| s == surface).unwrap_or(false))
-                        {
-                            Some(crate::focus::KeyboardFocusTarget::from(window.clone()))
-                        } else {
-                            None
-                        }
+                            .cloned();
+                        tracing::info!("Found window for X11Surface: {:?}", found.is_some());
+                        found
                     }
-                    PointerFocusTarget::SSD(_) => None,
+                    PointerFocusTarget::SSD(_) => {
+                        tracing::info!("Click on SSD, no window focus");
+                        None
+                    }
                 };
 
-                if let Some(kb_target) = keyboard_target {
-                    keyboard.set_focus(self, Some(kb_target), serial);
+                if let Some(window) = window_element {
+                    // Use the proper focus_window method that handles all the necessary updates
+                    tracing::info!("Calling focus_window for the clicked window");
+                    self.focus_window(&window);
+                } else {
+                    tracing::warn!("No window element found for the clicked surface");
                 }
             }
         } else {

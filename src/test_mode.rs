@@ -19,7 +19,7 @@ use tracing::{error, info};
 
 use crate::{
     backend::ascii::AsciiBackend,
-    state::{StilchState, Backend as BackendTrait},
+    state::{Backend as BackendTrait, StilchState},
 };
 
 pub struct TestBackendData {
@@ -423,6 +423,66 @@ impl TestIpcHandler {
 
                     crate::test_ipc::TestResponse::Success {
                         message: format!("Moved focus {direction}"),
+                    }
+                }
+
+                crate::test_ipc::TestCommand::ClickAt { x, y } => {
+                    // Simulate a pointer click at the given location
+                    use smithay::{
+                        input::pointer::ButtonEvent,
+                        reexports::wayland_server::protocol::wl_pointer,
+                        utils::{Logical, Point, SERIAL_COUNTER},
+                    };
+
+                    // First, move the pointer to the location
+                    let location = Point::<f64, Logical>::from((x as f64, y as f64));
+                    info!("ClickAt: Moving pointer to ({}, {})", x, y);
+                    state.pointer().set_location(location);
+
+                    // Check what's under the pointer
+                    let under = state.surface_under(location);
+                    info!("ClickAt: Surface under pointer: {:?}", under.is_some());
+
+                    // Update keyboard focus based on the click location
+                    let serial = SERIAL_COUNTER.next_serial();
+                    info!("ClickAt: Calling update_keyboard_focus");
+                    state.update_keyboard_focus(location, serial);
+
+                    // Also simulate the button event for any grab handlers
+                    let pointer = state.pointer().clone();
+                    pointer.button(
+                        state,
+                        &ButtonEvent {
+                            button: 0x110, // BTN_LEFT
+                            state: wl_pointer::ButtonState::Pressed.try_into().unwrap(),
+                            serial,
+                            time: 0,
+                        },
+                    );
+                    pointer.frame(state);
+
+                    // Release
+                    let serial = SERIAL_COUNTER.next_serial();
+                    pointer.button(
+                        state,
+                        &ButtonEvent {
+                            button: 0x110, // BTN_LEFT
+                            state: wl_pointer::ButtonState::Released.try_into().unwrap(),
+                            serial,
+                            time: 1,
+                        },
+                    );
+                    pointer.frame(state);
+
+                    // Check focus after click
+                    let focused = state.focused_window();
+                    info!(
+                        "ClickAt: Focused window after click: {:?}",
+                        focused.is_some()
+                    );
+
+                    crate::test_ipc::TestResponse::Success {
+                        message: format!("Clicked at ({}, {})", x, y),
                     }
                 }
 
