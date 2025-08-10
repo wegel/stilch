@@ -5,6 +5,7 @@
 
 use crate::{shell::WindowElement, window::WindowRegistry, workspace::WorkspaceManager};
 use smithay::desktop::Space;
+#[cfg(debug_assertions)]
 use tracing::error;
 
 /// Check consistency of window state across all tracking systems

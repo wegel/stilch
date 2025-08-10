@@ -2661,4 +2661,20 @@ pub trait Backend {
     fn reset_buffers(&mut self, output: &Output);
     fn early_import(&mut self, surface: &WlSurface);
     fn update_led_state(&mut self, led_state: LedState);
+    fn request_render(&mut self) {
+        // Default implementation does nothing
+        // Backends that need explicit render requests should override
+    }
+
+    fn request_render_for_output(&mut self, _output: &Output) {
+        // Default implementation requests render for all outputs
+        // Backends can override to be more selective
+        self.request_render();
+    }
+
+    fn should_schedule_render(&self) -> bool {
+        // Default implementation always returns true
+        // Backends can override to prevent duplicate idle callbacks
+        true
+    }
 }

@@ -195,6 +195,24 @@ impl<BackendData: Backend> CompositorHandler for StilchState<BackendData> {
         on_commit_buffer_handler::<Self>(surface);
         self.backend_data.early_import(surface);
 
+        // Only request render if the surface has a new buffer or explicit damage
+        let needs_render = with_states(surface, |states| {
+            let mut attrs = states.cached_state.get::<SurfaceAttributes>();
+            let current = attrs.current();
+
+            // Check if there's a new buffer or damage regions
+            matches!(current.buffer, Some(BufferAssignment::NewBuffer(_)))
+                || !current.damage.is_empty()
+        });
+
+        if needs_render {
+            tracing::trace!(
+                "Surface {:?} needs render (new buffer or damage)",
+                surface.id()
+            );
+            self.backend_data.request_render();
+        }
+
         if !is_sync_subsurface(surface) {
             let mut root = surface.clone();
             while let Some(parent) = get_parent(&root) {

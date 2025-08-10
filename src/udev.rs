@@ -5,7 +5,10 @@ use std::{
     io,
     ops::Not,
     path::Path,
-    sync::{atomic::Ordering, Mutex, Once},
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc, Mutex, Once,
+    },
     time::{Duration, Instant},
 };
 
@@ -145,6 +148,8 @@ pub struct UdevData {
     pointer_image: crate::cursor::Cursor,
     debug_flags: DebugFlags,
     keyboards: Vec<smithay::reexports::input::Device>,
+    outputs_needing_render: HashMap<(DrmNode, crtc::Handle), ()>,
+    render_idle_scheduled: Arc<AtomicBool>,
 }
 
 impl UdevData {
@@ -227,6 +232,21 @@ impl Backend for UdevData {
             keyboard.led_update(led_state.into());
         }
     }
+
+    fn request_render(&mut self) {
+        // Mark all outputs as needing render
+        // In a more sophisticated implementation, we'd track which specific outputs need render
+        for (node, backend) in self.backends.iter() {
+            for &crtc in backend.surfaces.keys() {
+                self.outputs_needing_render.insert((*node, crtc), ());
+            }
+        }
+    }
+
+    fn should_schedule_render(&self) -> bool {
+        // Only schedule if not already scheduled
+        !self.render_idle_scheduled.load(Ordering::Acquire)
+    }
 }
 
 pub fn run_udev(enable_test_ipc: bool) -> Result<(), Box<dyn std::error::Error>> {
@@ -289,6 +309,8 @@ pub fn run_udev(enable_test_ipc: bool) -> Result<(), Box<dyn std::error::Error>>
         fps_texture: None,
         debug_flags: DebugFlags::empty(),
         keyboards: Vec::new(),
+        outputs_needing_render: HashMap::new(),
+        render_idle_scheduled: Arc::new(AtomicBool::new(false)),
     };
     let mut state = StilchState::init(display, event_loop.handle(), data, true);
 
@@ -361,6 +383,9 @@ pub fn run_udev(enable_test_ipc: bool) -> Result<(), Box<dyn std::error::Error>>
                 if let Err(err) = libinput_context.resume() {
                     error!("Failed to resume libinput context: {:?}", err);
                 }
+                // Collect outputs that need rendering first
+                let mut outputs_to_render = Vec::new();
+
                 for (node, backend) in data
                     .backend_data
                     .backends
@@ -380,8 +405,23 @@ pub fn run_udev(enable_test_ipc: bool) -> Result<(), Box<dyn std::error::Error>>
                     if let Some(lease_global) = backend.leasing_global.as_mut() {
                         lease_global.resume::<StilchState<UdevData>>();
                     }
-                    data.handle
-                        .insert_idle(move |data| data.render(node, None, data.clock.now()));
+                    // Collect outputs on this device that need render
+                    for &crtc in backend.surfaces.keys() {
+                        outputs_to_render.push((node, crtc));
+                    }
+                }
+
+                // Mark all collected outputs as needing render
+                let has_outputs = !outputs_to_render.is_empty();
+                for (node, crtc) in outputs_to_render {
+                    data.backend_data
+                        .outputs_needing_render
+                        .insert((node, crtc), ());
+                }
+
+                // Schedule render if we have outputs that need it
+                if has_outputs {
+                    data.schedule_render();
                 }
             }
         })
@@ -615,7 +655,7 @@ pub fn run_udev(enable_test_ipc: bool) -> Result<(), Box<dyn std::error::Error>>
 
     tracing::info!("Starting main event loop");
     while state.running.load(Ordering::SeqCst) {
-        let result = event_loop.dispatch(Some(Duration::from_millis(16)), &mut state);
+        let result = event_loop.dispatch(None, &mut state);
         if result.is_err() {
             tracing::error!("Event loop dispatch failed, exiting");
             state.running.store(false, Ordering::SeqCst);
@@ -623,6 +663,9 @@ pub fn run_udev(enable_test_ipc: bool) -> Result<(), Box<dyn std::error::Error>>
             state.space_mut().refresh();
             state.popups_mut().cleanup();
             display_handle.flush_clients().unwrap();
+
+            // Process any pending renders
+            state.process_pending_renders();
 
             // Execute startup commands after first successful dispatch
             if !state.startup_done.get() {
@@ -890,6 +933,43 @@ fn get_surface_dmabuf_feedback(
 }
 
 impl StilchState<UdevData> {
+    pub fn schedule_render(&mut self) {
+        self.backend_data.request_render();
+
+        // Schedule idle callback if not already scheduled
+        if !self
+            .backend_data
+            .render_idle_scheduled
+            .load(Ordering::Acquire)
+        {
+            self.backend_data
+                .render_idle_scheduled
+                .store(true, Ordering::Release);
+            self.handle.insert_idle(|state| {
+                state
+                    .backend_data
+                    .render_idle_scheduled
+                    .store(false, Ordering::Release);
+                state.process_pending_renders();
+            });
+        }
+    }
+
+    fn process_pending_renders(&mut self) {
+        // Get all outputs that need rendering
+        let outputs_to_render: Vec<_> = self.backend_data.outputs_needing_render.drain().collect();
+
+        if outputs_to_render.is_empty() {
+            return;
+        }
+
+        tracing::trace!("Processing {} pending renders", outputs_to_render.len());
+
+        for ((node, crtc), _) in outputs_to_render {
+            self.render_surface(node, crtc, self.clock.now());
+        }
+    }
+
     fn device_added(&mut self, node: DrmNode, path: &Path) -> Result<(), DeviceAddError> {
         // Try to open the device
         let fd = self
@@ -1481,10 +1561,12 @@ impl StilchState<UdevData> {
             // Update tiling area for new output
             self.update_tiling_area_from_output();
 
-            // kick-off rendering
-            self.handle.insert_idle(move |state| {
-                state.render_surface(node, crtc, state.clock.now());
-            });
+            // Schedule initial render for new output
+            self.backend_data
+                .outputs_needing_render
+                .insert((node, crtc), ());
+            trace!("Marked new output for initial render: {:?}", crtc);
+            self.schedule_render();
         }
     }
 
@@ -1802,85 +1884,13 @@ impl StilchState<UdevData> {
         };
 
         if schedule_render {
-            let next_frame_target = clock + frame_duration;
-
-            // What are we trying to solve by introducing a delay here:
-            //
-            // Basically it is all about latency of client provided buffers.
-            // A client driven by frame callbacks will wait for a frame callback
-            // to repaint and submit a new buffer. As we send frame callbacks
-            // as part of the repaint in the compositor the latency would always
-            // be approx. 2 frames. By introducing a delay before we repaint in
-            // the compositor we can reduce the latency to approx. 1 frame + the
-            // remaining duration from the repaint to the next VBlank.
-            //
-            // With the delay it is also possible to further reduce latency if
-            // the client is driven by presentation feedback. As the presentation
-            // feedback is directly sent after a VBlank the client can submit a
-            // new buffer during the repaint delay that can hit the very next
-            // VBlank, thus reducing the potential latency to below one frame.
-            //
-            // Choosing a good delay is a topic on its own so we just implement
-            // a simple strategy here. We just split the duration between two
-            // VBlanks into two steps, one for the client repaint and one for the
-            // compositor repaint. Theoretically the repaint in the compositor should
-            // be faster so we give the client a bit more time to repaint. On a typical
-            // modern system the repaint in the compositor should not take more than 2ms
-            // so this should be safe for refresh rates up to at least 120 Hz. For 120 Hz
-            // this results in approx. 3.33ms time for repainting in the compositor.
-            // A too big delay could result in missing the next VBlank in the compositor.
-            //
-            // A more complete solution could work on a sliding window analyzing past repaints
-            // and do some prediction for the next repaint.
-            let repaint_delay = Duration::from_secs_f64(frame_duration.as_secs_f64() * 0.6f64);
-
-            let timer = if surface
-                .render_node
-                .map(|render_node| render_node != self.backend_data.primary_gpu)
-                .unwrap_or(true)
-            {
-                // However, if we need to do a copy, that might not be enough.
-                // (And without actual comparision to previous frames we cannot really know.)
-                // So lets ignore that in those cases to avoid thrashing performance.
-                trace!("scheduling repaint timer immediately on {:?}", crtc);
-                Timer::immediate()
-            } else {
-                trace!(
-                    "scheduling repaint timer with delay {:?} on {:?}",
-                    repaint_delay,
-                    crtc
-                );
-                Timer::from_duration(repaint_delay)
-            };
-
-            if let Err(e) = self.handle.insert_source(timer, move |_, _, data| {
-                data.render(dev_id, Some(crtc), next_frame_target);
-                TimeoutAction::Drop
-            }) {
-                error!("Failed to schedule frame timer: {e}");
-                // Critical: if we can't schedule frames, rendering will stop
-            }
+            // Mark output as needing render
+            self.backend_data
+                .outputs_needing_render
+                .insert((dev_id, crtc), ());
+            trace!("Marked output for render after vblank: {:?}", crtc);
+            self.schedule_render();
         }
-    }
-
-    // If crtc is `Some()`, render it, else render all crtcs
-    fn render(&mut self, node: DrmNode, crtc: Option<crtc::Handle>, frame_target: Time<Monotonic>) {
-        let device_backend = match self.backend_data.backends.get_mut(&node) {
-            Some(backend) => backend,
-            None => {
-                error!("Trying to render on non-existent backend {node}");
-                return;
-            }
-        };
-
-        if let Some(crtc) = crtc {
-            self.render_surface(node, crtc, frame_target);
-        } else {
-            let crtcs: Vec<_> = device_backend.surfaces.keys().copied().collect();
-            for crtc in crtcs {
-                self.render_surface(node, crtc, frame_target);
-            }
-        };
     }
 
     fn render_surface(&mut self, node: DrmNode, crtc: crtc::Handle, frame_target: Time<Monotonic>) {
@@ -2027,31 +2037,15 @@ impl StilchState<UdevData> {
         };
 
         if reschedule {
-            let output_refresh = match output.current_mode() {
-                Some(mode) => mode.refresh,
-                None => return,
-            };
-
-            // If reschedule is true we either hit a temporary failure or more likely rendering
-            // did not cause any damage on the output. In this case we just re-schedule a repaint
-            // after approx. one frame to re-test for damage.
-            let next_frame_target =
-                frame_target + Duration::from_millis(1_000_000 / output_refresh as u64);
-            let reschedule_timeout =
-                Duration::from(next_frame_target).saturating_sub(self.clock.now().into());
+            // Rendering failed due to temporary error - mark output as needing render
+            self.backend_data
+                .outputs_needing_render
+                .insert((node, crtc), ());
             trace!(
-                "reschedule repaint timer with delay {:?} on {:?}",
-                reschedule_timeout,
-                crtc,
+                "Marked output for re-render due to temporary failure: {:?}",
+                crtc
             );
-            let timer = Timer::from_duration(reschedule_timeout);
-            if let Err(e) = self.handle.insert_source(timer, move |_, _, data| {
-                data.render(node, Some(crtc), next_frame_target);
-                TimeoutAction::Drop
-            }) {
-                error!("Failed to schedule frame timer for retry: {e}");
-                // Critical: if we can't schedule retry, this output won't render
-            }
+            self.schedule_render();
         } else {
             let elapsed = start.elapsed();
             tracing::trace!(?elapsed, "rendered surface");
