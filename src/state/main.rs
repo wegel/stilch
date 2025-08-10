@@ -1393,8 +1393,18 @@ impl<BackendData: Backend + 'static> StilchState<BackendData> {
             // Set initial bounds and size
             if let Some(toplevel) = window.0.toplevel() {
                 toplevel.with_pending_state(|state| {
+                    use smithay::reexports::wayland_protocols::xdg::shell::server::xdg_toplevel::State;
                     state.bounds = Some(geometry.size);
                     state.size = Some(geometry.size);
+                    // Set all tiled states for new tiled windows
+                    if let Some(managed_window) = self.window_registry().get(window_id) {
+                        if managed_window.is_tiled() {
+                            state.states.set(State::TiledLeft);
+                            state.states.set(State::TiledRight);
+                            state.states.set(State::TiledTop);
+                            state.states.set(State::TiledBottom);
+                        }
+                    }
                 });
                 // Send configure if initial configure was already sent
                 if toplevel.is_initial_configure_sent() {
@@ -1937,6 +1947,11 @@ impl<BackendData: Backend + 'static> StilchState<BackendData> {
             if let Some(toplevel) = window_element.0.toplevel() {
                 toplevel.with_pending_state(|state| {
                     state.states.set(xdg_toplevel::State::Fullscreen);
+                    // Clear tiled states when fullscreen
+                    state.states.unset(xdg_toplevel::State::TiledLeft);
+                    state.states.unset(xdg_toplevel::State::TiledRight);
+                    state.states.unset(xdg_toplevel::State::TiledTop);
+                    state.states.unset(xdg_toplevel::State::TiledBottom);
                     state.size = Some(workspace_area.size);
                     state.bounds = Some(workspace_area.size);
                 });
@@ -2024,6 +2039,11 @@ impl<BackendData: Backend + 'static> StilchState<BackendData> {
             if let Some(toplevel) = window_element.0.toplevel() {
                 toplevel.with_pending_state(|state| {
                     state.states.set(xdg_toplevel::State::Fullscreen);
+                    // Clear tiled states when fullscreen
+                    state.states.unset(xdg_toplevel::State::TiledLeft);
+                    state.states.unset(xdg_toplevel::State::TiledRight);
+                    state.states.unset(xdg_toplevel::State::TiledTop);
+                    state.states.unset(xdg_toplevel::State::TiledBottom);
                     state.size = Some(vo_region.size);
                     state.bounds = Some(vo_region.size);
                 });
@@ -2068,6 +2088,11 @@ impl<BackendData: Backend + 'static> StilchState<BackendData> {
             if let Some(toplevel) = window_element.0.toplevel() {
                 toplevel.with_pending_state(|state| {
                     state.states.set(xdg_toplevel::State::Fullscreen);
+                    // Clear tiled states when fullscreen
+                    state.states.unset(xdg_toplevel::State::TiledLeft);
+                    state.states.unset(xdg_toplevel::State::TiledRight);
+                    state.states.unset(xdg_toplevel::State::TiledTop);
+                    state.states.unset(xdg_toplevel::State::TiledBottom);
                     state.size = Some(output_geo.size);
                     state.bounds = Some(output_geo.size);
                     // fullscreen_output expects a WlOutput, not smithay Output

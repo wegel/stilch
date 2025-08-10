@@ -369,8 +369,21 @@ impl Workspace {
                     // Update window bounds
                     if let Some(toplevel) = managed_window.element.0.toplevel() {
                         toplevel.with_pending_state(|state| {
+                            use smithay::reexports::wayland_protocols::xdg::shell::server::xdg_toplevel::State;
                             state.bounds = Some(geometry.size);
                             state.size = Some(geometry.size);
+                            // Set all tiled states when window is tiled
+                            if managed_window.is_tiled() {
+                                state.states.set(State::TiledLeft);
+                                state.states.set(State::TiledRight);
+                                state.states.set(State::TiledTop);
+                                state.states.set(State::TiledBottom);
+                            } else {
+                                state.states.unset(State::TiledLeft);
+                                state.states.unset(State::TiledRight);
+                                state.states.unset(State::TiledTop);
+                                state.states.unset(State::TiledBottom);
+                            }
                         });
                         // Send configure to notify the client
                         if toplevel.is_initial_configure_sent() {

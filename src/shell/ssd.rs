@@ -293,7 +293,9 @@ impl WindowElement {
             .borrow_mut()
     }
 
-    pub fn set_ssd(&self, ssd: bool) {
-        self.decoration_state().is_ssd = ssd;
+    pub fn set_ssd(&self, _ssd: bool) {
+        // In a tiling window manager, we never use decorations
+        // Always keep is_ssd as false
+        self.decoration_state().is_ssd = false;
     }
 }

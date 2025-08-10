@@ -114,8 +114,7 @@ impl<BackendData: Backend> XdgShellHandler for StilchState<BackendData> {
         let window = WindowElement(Window::new_wayland_window(surface.clone()));
         let window_ptr = format!("{:p}", &window.0 as *const _);
 
-        // Disable decorations by default (i3/sway style - only borders, no title bars)
-        window.set_ssd(false);
+        // Don't set decoration mode here - wait for the client to request it via xdg-decoration protocol
         let window_surface = window
             .0
             .toplevel()
@@ -490,8 +489,8 @@ impl<BackendData: Backend> XdgShellHandler for StilchState<BackendData> {
                 }
             }
 
-            // Don't apply decoration mode from configure - we handle decorations ourselves
-            // In i3/sway style, we don't use title bars for regular tiled windows
+            // In a tiling WM, we never use server-side decorations
+            // The decoration mode is always forced to client-side in the XdgDecorationHandler
         }
     }
 

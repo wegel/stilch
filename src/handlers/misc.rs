@@ -116,18 +116,43 @@ impl<BackendData: Backend> XdgActivationHandler for StilchState<BackendData> {
 }
 
 impl<BackendData: Backend> XdgDecorationHandler for StilchState<BackendData> {
-    fn new_decoration(&mut self, _toplevel: smithay::wayland::shell::xdg::ToplevelSurface) {
-        // Automatically configure server-side decorations
+    fn new_decoration(&mut self, toplevel: smithay::wayland::shell::xdg::ToplevelSurface) {
+        use smithay::reexports::wayland_protocols::xdg::decoration::zv1::server::zxdg_toplevel_decoration_v1::Mode;
+        // Tell clients we'll handle decorations (but we won't actually draw any)
+        toplevel.with_pending_state(|state| {
+            state.decoration_mode = Some(Mode::ServerSide);
+        });
     }
+
     fn request_mode(
         &mut self,
-        _toplevel: smithay::wayland::shell::xdg::ToplevelSurface,
+        toplevel: smithay::wayland::shell::xdg::ToplevelSurface,
         _mode: smithay::reexports::wayland_protocols::xdg::decoration::zv1::server::zxdg_toplevel_decoration_v1::Mode,
     ) {
-        // Always use server-side decorations
+        use smithay::reexports::wayland_protocols::xdg::decoration::zv1::server::zxdg_toplevel_decoration_v1::Mode;
+
+        // Always tell clients we're doing server-side decorations
+        // This prevents them from drawing their own decorations
+        toplevel.with_pending_state(|state| {
+            state.decoration_mode = Some(Mode::ServerSide);
+        });
+
+        // If the initial configure has been sent, send a new configure
+        if toplevel.is_initial_configure_sent() {
+            toplevel.send_pending_configure();
+        }
     }
-    fn unset_mode(&mut self, _toplevel: smithay::wayland::shell::xdg::ToplevelSurface) {
-        // Handle unset mode
+
+    fn unset_mode(&mut self, toplevel: smithay::wayland::shell::xdg::ToplevelSurface) {
+        use smithay::reexports::wayland_protocols::xdg::decoration::zv1::server::zxdg_toplevel_decoration_v1::Mode;
+        // Even when unset, claim we're doing server-side decorations
+        toplevel.with_pending_state(|state| {
+            state.decoration_mode = Some(Mode::ServerSide);
+        });
+
+        if toplevel.is_initial_configure_sent() {
+            toplevel.send_pending_configure();
+        }
     }
 }
 
