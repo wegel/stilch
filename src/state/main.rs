@@ -155,6 +155,7 @@ delegate_layer_shell!(@<BackendData: Backend + 'static> StilchState<BackendData>
 smithay::delegate_single_pixel_buffer!(@<BackendData: Backend + 'static> StilchState<BackendData>);
 smithay::delegate_fifo!(@<BackendData: Backend + 'static> StilchState<BackendData>);
 smithay::delegate_commit_timing!(@<BackendData: Backend + 'static> StilchState<BackendData>);
+smithay::delegate_cursor_shape!(@<BackendData: Backend + 'static> StilchState<BackendData>);
 
 #[cfg(feature = "xwayland")]
 impl<BackendData: Backend + 'static> XWaylandKeyboardGrabHandler for StilchState<BackendData> {

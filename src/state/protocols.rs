@@ -8,6 +8,7 @@ use smithay::{
     wayland::{
         commit_timing::CommitTimingManagerState,
         compositor::CompositorState,
+        cursor_shape::CursorShapeManagerState,
         fifo::FifoManagerState,
         fractional_scale::FractionalScaleManagerState,
         keyboard_shortcuts_inhibit::KeyboardShortcutsInhibitState,
@@ -67,6 +68,9 @@ pub struct ProtocolState<BackendData: Backend + 'static> {
     pub single_pixel_buffer_state: SinglePixelBufferState,
     pub fifo_manager_state: FifoManagerState,
     pub commit_timing_manager_state: CommitTimingManagerState,
+
+    // Cursor support
+    pub cursor_shape_manager_state: CursorShapeManagerState,
 
     // XWayland support
     #[cfg(feature = "xwayland")]
@@ -135,6 +139,11 @@ impl<BackendData: Backend + 'static> ProtocolState<BackendData> {
             ),
             fifo_manager_state: FifoManagerState::new::<StilchState<BackendData>>(display_handle),
             commit_timing_manager_state: CommitTimingManagerState::new::<StilchState<BackendData>>(
+                display_handle,
+            ),
+
+            // Cursor support
+            cursor_shape_manager_state: CursorShapeManagerState::new::<StilchState<BackendData>>(
                 display_handle,
             ),
 
