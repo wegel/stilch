@@ -339,6 +339,27 @@ pub fn run_udev(enable_test_ipc: bool) -> Result<(), Box<dyn std::error::Error>>
         .insert_source(libinput_backend, move |mut event, _, data| {
             let dh = data.backend_data.dh.clone();
             if let InputEvent::DeviceAdded { device } = &mut event {
+                // Configure the device to disable "disable-while-typing" feature
+                // This prevents the cursor from being blocked during typing
+                if device.has_capability(DeviceCapability::Pointer) {
+                    // The device is already a libinput::Device, we can call methods directly
+                    // Check if the device supports disable-while-typing configuration
+                    if device.config_dwt_is_available() {
+                        // Disable the "disable-while-typing" feature
+                        if let Err(e) = device.config_dwt_set_enabled(false) {
+                            warn!(
+                                "Failed to disable 'disable-while-typing' for pointer device: {:?}",
+                                e
+                            );
+                        } else {
+                            info!(
+                                "Disabled 'disable-while-typing' for pointer device: {}",
+                                device.name()
+                            );
+                        }
+                    }
+                }
+
                 if device.has_capability(DeviceCapability::Keyboard) {
                     if let Some(led_state) = data
                         .seat()
