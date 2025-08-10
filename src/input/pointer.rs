@@ -125,6 +125,27 @@ impl<BackendData: Backend> StilchState<BackendData> {
 
         let pointer = self.pointer().clone();
         let under = self.surface_under(pos);
+
+        // Update keyboard focus if focus_follows_mouse is enabled
+        if self.config.focus_follows_mouse() {
+            if let Some((focus, _)) = under.as_ref() {
+                // Only update focus if we're hovering over a different window
+                let current_focus = self.seat().get_keyboard().unwrap().current_focus();
+                let should_update_focus = match current_focus {
+                    Some(current) => {
+                        // Convert current keyboard focus to pointer focus target for comparison
+                        let current_as_pointer: PointerFocusTarget = current.into();
+                        current_as_pointer != *focus
+                    }
+                    None => true,
+                };
+
+                if should_update_focus {
+                    self.update_keyboard_focus(pos, serial);
+                }
+            }
+        }
+
         pointer.motion(
             self,
             under,
@@ -206,6 +227,26 @@ impl StilchState<crate::udev::UdevData> {
 
         let under = self.surface_under(pointer_location);
 
+        // Update keyboard focus if focus_follows_mouse is enabled
+        if self.config.focus_follows_mouse() {
+            if let Some((focus, _)) = under.as_ref() {
+                // Only update focus if we're hovering over a different window
+                let current_focus = self.seat().get_keyboard().unwrap().current_focus();
+                let should_update_focus = match current_focus {
+                    Some(current) => {
+                        // Convert current keyboard focus to pointer focus target for comparison
+                        let current_as_pointer: PointerFocusTarget = current.into();
+                        current_as_pointer != *focus
+                    }
+                    None => true,
+                };
+
+                if should_update_focus {
+                    self.update_keyboard_focus(pointer_location, serial);
+                }
+            }
+        }
+
         pointer.motion(
             self,
             under,
@@ -268,6 +309,26 @@ impl StilchState<crate::udev::UdevData> {
 
         let pointer = self.pointer().clone();
         let under = self.surface_under(location);
+
+        // Update keyboard focus if focus_follows_mouse is enabled
+        if self.config.focus_follows_mouse() {
+            if let Some((focus, _)) = under.as_ref() {
+                // Only update focus if we're hovering over a different window
+                let current_focus = self.seat().get_keyboard().unwrap().current_focus();
+                let should_update_focus = match current_focus {
+                    Some(current) => {
+                        // Convert current keyboard focus to pointer focus target for comparison
+                        let current_as_pointer: PointerFocusTarget = current.into();
+                        current_as_pointer != *focus
+                    }
+                    None => true,
+                };
+
+                if should_update_focus {
+                    self.update_keyboard_focus(location, serial);
+                }
+            }
+        }
 
         pointer.motion(
             self,

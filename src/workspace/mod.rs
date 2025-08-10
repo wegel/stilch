@@ -341,17 +341,30 @@ impl Workspace {
             }
         } else {
             // Normal layout - no fullscreen
-            let geometries = self.layout.get_all_geometries();
+            let visible_geometries = self.layout.get_visible_geometries();
+            let all_geometries = self.layout.get_all_geometries();
 
             tracing::debug!(
-                "Applying layout for workspace {}: {} windows",
+                "Applying layout for workspace {}: {} visible windows out of {} total",
                 self.id,
-                geometries.len()
+                visible_geometries.len(),
+                all_geometries.len()
             );
 
-            for (window_id, geometry) in geometries {
+            // First, unmap all windows that should be hidden (e.g., inactive tabs)
+            for (window_id, _) in &all_geometries {
+                if !visible_geometries.iter().any(|(id, _)| id == window_id) {
+                    if let Some(managed_window) = window_registry.get(*window_id) {
+                        tracing::debug!("Unmapping hidden window {} (inactive tab)", window_id);
+                        space.unmap_elem(&managed_window.element);
+                    }
+                }
+            }
+
+            // Then map only the visible windows
+            for (window_id, geometry) in visible_geometries {
                 if let Some(managed_window) = window_registry.get(window_id) {
-                    tracing::debug!("Mapping window {} at {:?}", window_id, geometry);
+                    tracing::debug!("Mapping visible window {} at {:?}", window_id, geometry);
 
                     // Update window bounds
                     if let Some(toplevel) = managed_window.element.0.toplevel() {

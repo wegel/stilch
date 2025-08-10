@@ -236,6 +236,19 @@ impl Config {
         self.variables.get(name).cloned()
     }
 
+    /// Get a boolean variable value (compatible with i3/sway: yes/no, true/false, on/off, 1/0)
+    pub fn get_bool(&self, name: &str) -> Option<bool> {
+        self.get_variable(name).map(|v| {
+            let v = v.to_lowercase();
+            matches!(v.as_str(), "yes" | "true" | "on" | "1")
+        })
+    }
+
+    /// Check if focus follows mouse is enabled (default: true)
+    pub fn focus_follows_mouse(&self) -> bool {
+        self.get_bool("focus_follows_mouse").unwrap_or(true)
+    }
+
     /// Expand variables in a string
     pub fn expand_variables(&self, text: &str) -> String {
         let mut result = text.to_string();
