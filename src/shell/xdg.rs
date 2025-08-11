@@ -206,23 +206,17 @@ impl<BackendData: Backend> XdgShellHandler for StilchState<BackendData> {
             }
         }
 
-        // Set focus to the new window
-        if let Some(keyboard) = self.seat().get_keyboard() {
-            keyboard.set_focus(
-                self,
-                Some(crate::focus::KeyboardFocusTarget::Window(window.0.clone())),
-                smithay::utils::SERIAL_COUNTER.next_serial(),
-            );
+        // Set focus to the new window using focus_window to ensure workspace tracking
+        self.focus_window(&window);
 
-            // Move cursor to center of new window
-            if let Some(loc) = self.space().element_location(&window) {
-                let geo = window.geometry();
-                let center = smithay::utils::Point::<f64, smithay::utils::Logical>::from((
-                    (loc.x + geo.size.w / 2) as f64,
-                    (loc.y + geo.size.h / 2) as f64,
-                ));
-                self.pointer().set_location(center);
-            }
+        // Move cursor to center of new window
+        if let Some(loc) = self.space().element_location(&window) {
+            let geo = window.geometry();
+            let center = smithay::utils::Point::<f64, smithay::utils::Logical>::from((
+                (loc.x + geo.size.w / 2) as f64,
+                (loc.y + geo.size.h / 2) as f64,
+            ));
+            self.pointer().set_location(center);
         }
 
         // Debug dump all windows before adding post commit hook

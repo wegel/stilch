@@ -252,11 +252,27 @@ impl<BackendData: crate::state::Backend + 'static> TestCommandHandler
                     };
 
                     let workspace_id = managed_window.workspace;
-                    let is_focused = state
-                        .workspace_manager
-                        .get(workspace_id)
-                        .map(|ws| ws.focused_window == Some(*window_id))
-                        .unwrap_or(false);
+
+                    // A window is only focused if:
+                    // 1. It's the focused window in its workspace
+                    // 2. Its workspace is currently active on some virtual output
+                    let is_workspace_active = state
+                        .virtual_output_manager
+                        .all_virtual_outputs()
+                        .any(|vo| {
+                            vo.active_workspace()
+                                .map(|ws_idx| {
+                                    crate::workspace::WorkspaceId::new(ws_idx as u8) == workspace_id
+                                })
+                                .unwrap_or(false)
+                        });
+
+                    let is_focused = is_workspace_active
+                        && state
+                            .workspace_manager
+                            .get(workspace_id)
+                            .map(|ws| ws.focused_window == Some(*window_id))
+                            .unwrap_or(false);
 
                     windows.push(WindowInfo {
                         id: window_id.get(),
