@@ -1160,6 +1160,22 @@ impl<BackendData: Backend + 'static> StilchState<BackendData> {
                     if let Some(element) = element {
                         self.focus_window(&element);
                         debug!("Focused window {} in workspace {}", window_id, workspace_id);
+
+                        // Update pointer focus to match the newly focused window
+                        // This ensures mouse events go to the correct window
+                        let pointer = self.pointer().clone();
+                        let pointer_loc = pointer.current_location();
+                        let surface_under = self.surface_under(pointer_loc);
+                        pointer.motion(
+                            self,
+                            surface_under,
+                            &smithay::input::pointer::MotionEvent {
+                                location: pointer_loc,
+                                serial: SCOUNTER.next_serial(),
+                                time: self.clock.now().as_millis() as u32,
+                            },
+                        );
+                        pointer.frame(self);
                     }
                 } else {
                     // No windows in workspace, clear keyboard focus
@@ -1170,6 +1186,21 @@ impl<BackendData: Backend + 'static> StilchState<BackendData> {
                             workspace_id
                         );
                     }
+
+                    // Also update pointer focus when workspace is empty
+                    let pointer = self.pointer().clone();
+                    let pointer_loc = pointer.current_location();
+                    let surface_under = self.surface_under(pointer_loc);
+                    pointer.motion(
+                        self,
+                        surface_under,
+                        &smithay::input::pointer::MotionEvent {
+                            location: pointer_loc,
+                            serial: SCOUNTER.next_serial(),
+                            time: self.clock.now().as_millis() as u32,
+                        },
+                    );
+                    pointer.frame(self);
                 }
             }
 
