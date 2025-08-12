@@ -1,7 +1,7 @@
 //! Layout tree management for tiling windows
 
 use crate::window::{ContainerId, WindowId};
-use smithay::utils::{Logical, Rectangle};
+use smithay::utils::{Logical, Point, Rectangle, Size};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SplitDirection {
@@ -428,6 +428,13 @@ impl LayoutTree {
     pub fn find_tabbed_containers(&self) -> Vec<(Rectangle<i32, Logical>, Vec<(WindowId, bool)>)> {
         let mut containers = Vec::new();
         Self::find_tabbed_containers_recursive(&self.root, &mut containers);
+        containers
+    }
+    
+    /// Find all stacked containers and their windows
+    pub fn find_stacked_containers(&self) -> Vec<(Rectangle<i32, Logical>, Vec<(WindowId, bool)>)> {
+        let mut containers = Vec::new();
+        Self::find_stacked_containers_recursive(&self.root, &mut containers);
         containers
     }
 
@@ -884,10 +891,20 @@ impl LayoutTree {
                         }
                     }
                     ContainerLayout::Stacked => {
-                        // For stacked, reserve space for title bars
-                        // TODO: Implement stacked title bar height calculation
+                        // For stacked, reserve space for title bars - one for each window
+                        let num_children = children.len();
+                        let title_bar_height = crate::tab_bar::TAB_BAR_HEIGHT;
+                        let total_title_height = title_bar_height * num_children as i32;
+                        
+                        // Calculate the client area (below all stacked title bars)
+                        let client_area = Rectangle::new(
+                            Point::from((available.loc.x, available.loc.y + total_title_height)),
+                            Size::from((available.size.w, available.size.h - total_title_height)),
+                        );
+                        
+                        // All children get the client area (below title bars)
                         for child in children.iter_mut() {
-                            Self::calculate_node_geometry_static(child, available, gap);
+                            Self::calculate_node_geometry_static(child, client_area, gap);
                         }
                     }
                 }
@@ -1234,6 +1251,43 @@ impl LayoutTree {
                     // Recurse into children for non-tabbed containers
                     for child in children.iter() {
                         Self::find_tabbed_containers_recursive(&Some(child.clone()), containers);
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+    
+    fn find_stacked_containers_recursive(
+        node: &Option<LayoutNode>,
+        containers: &mut Vec<(Rectangle<i32, Logical>, Vec<(WindowId, bool)>)>,
+    ) {
+        match node {
+            Some(LayoutNode::Container {
+                layout,
+                children,
+                geometry,
+                ..
+            }) => {
+                if matches!(layout, ContainerLayout::Stacked) {
+                    // Collect all windows in this stacked container
+                    let mut windows = Vec::new();
+                    let active_index = children.active_index();
+                    for (i, child) in children.iter().enumerate() {
+                        let mut child_windows = Vec::new();
+                        Self::collect_window_ids(child, &mut child_windows);
+                        // Mark active state for each window in this child
+                        for (window_id, _) in child_windows {
+                            windows.push((window_id, i == active_index));
+                        }
+                    }
+                    if !windows.is_empty() {
+                        containers.push((*geometry, windows));
+                    }
+                } else {
+                    // Recurse into children for non-stacked containers
+                    for child in children.iter() {
+                        Self::find_stacked_containers_recursive(&Some(child.clone()), containers);
                     }
                 }
             }
