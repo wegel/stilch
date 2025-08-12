@@ -19,6 +19,12 @@ pub enum LayoutMode {
     Stacked,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum TabMoveDirection {
+    Left,
+    Right,
+}
+
 #[derive(Debug, Clone)]
 pub enum LayoutNode {
     /// A window leaf node
@@ -419,9 +425,41 @@ impl LayoutTree {
         }
     }
 
+    /// Move a tab to the left in a tabbed/stacked container
+    /// Returns true if the tab was moved successfully
+    pub fn move_tab_left(&mut self, window_id: WindowId) -> bool {
+        if let Some(root) = &mut self.root {
+            Self::move_tab_recursive(root, window_id, TabMoveDirection::Left)
+        } else {
+            false
+        }
+    }
+
+    /// Move a tab to the right in a tabbed/stacked container
+    /// Returns true if the tab was moved successfully
+    pub fn move_tab_right(&mut self, window_id: WindowId) -> bool {
+        if let Some(root) = &mut self.root {
+            Self::move_tab_recursive(root, window_id, TabMoveDirection::Right)
+        } else {
+            false
+        }
+    }
+
+    /// Get all windows in order
+    pub fn get_windows(&self) -> Vec<WindowId> {
+        let mut windows = Vec::new();
+        Self::collect_windows_ordered(&self.root, &mut windows);
+        windows
+    }
+
     /// Check if a window is in a tabbed container
     pub fn is_window_in_tabbed_container(&self, window_id: WindowId) -> bool {
         Self::check_window_in_tabbed_container(&self.root, window_id)
+    }
+
+    /// Check if a window is in a tabbed or stacked container
+    pub fn is_window_in_tabbed_or_stacked_container(&self, window_id: WindowId) -> bool {
+        Self::check_window_in_tabbed_or_stacked_container(&self.root, window_id)
     }
 
     /// Find all tabbed containers and their windows
@@ -430,7 +468,7 @@ impl LayoutTree {
         Self::find_tabbed_containers_recursive(&self.root, &mut containers);
         containers
     }
-    
+
     /// Find all stacked containers and their windows
     pub fn find_stacked_containers(&self) -> Vec<(Rectangle<i32, Logical>, Vec<(WindowId, bool)>)> {
         let mut containers = Vec::new();
@@ -895,13 +933,13 @@ impl LayoutTree {
                         let num_children = children.len();
                         let title_bar_height = crate::tab_bar::TAB_BAR_HEIGHT;
                         let total_title_height = title_bar_height * num_children as i32;
-                        
+
                         // Calculate the client area (below all stacked title bars)
                         let client_area = Rectangle::new(
                             Point::from((available.loc.x, available.loc.y + total_title_height)),
                             Size::from((available.size.w, available.size.h - total_title_height)),
                         );
-                        
+
                         // All children get the client area (below title bars)
                         for child in children.iter_mut() {
                             Self::calculate_node_geometry_static(child, client_area, gap);
@@ -1257,7 +1295,7 @@ impl LayoutTree {
             _ => {}
         }
     }
-    
+
     fn find_stacked_containers_recursive(
         node: &Option<LayoutNode>,
         containers: &mut Vec<(Rectangle<i32, Logical>, Vec<(WindowId, bool)>)>,
@@ -1434,6 +1472,118 @@ impl LayoutTree {
             LayoutNode::Container { children, .. } => children
                 .iter()
                 .any(|child| Self::node_contains_window(child, window_id)),
+        }
+    }
+
+    fn move_tab_recursive(
+        node: &mut LayoutNode,
+        window_id: WindowId,
+        direction: TabMoveDirection,
+    ) -> bool {
+        match node {
+            LayoutNode::Window { .. } => false,
+            LayoutNode::Container {
+                layout, children, ..
+            } => {
+                // Check if this container contains the window
+                let contains_window = children
+                    .iter()
+                    .any(|child| Self::node_contains_window(child, window_id));
+
+                if contains_window
+                    && matches!(layout, ContainerLayout::Tabbed | ContainerLayout::Stacked)
+                {
+                    // Find the index of the window
+                    let window_index = children.iter().position(|child| {
+                        if let LayoutNode::Window { id, .. } = child {
+                            *id == window_id
+                        } else {
+                            false
+                        }
+                    });
+
+                    if let Some(current_index) = window_index {
+                        let new_index = match direction {
+                            TabMoveDirection::Left => {
+                                if current_index == 0 {
+                                    return false; // Can't move further left
+                                }
+                                current_index - 1
+                            }
+                            TabMoveDirection::Right => {
+                                if current_index == children.len() - 1 {
+                                    return false; // Can't move further right
+                                }
+                                current_index + 1
+                            }
+                        };
+
+                        children.swap(current_index, new_index);
+                        tracing::info!(
+                            "Moved tab from index {} to {} (direction: {:?})",
+                            current_index,
+                            new_index,
+                            direction
+                        );
+                        return true;
+                    }
+                } else {
+                    // Recurse into children
+                    for child in children.iter_mut() {
+                        if Self::move_tab_recursive(child, window_id, direction) {
+                            return true;
+                        }
+                    }
+                }
+                false
+            }
+        }
+    }
+
+    fn collect_windows_ordered(node: &Option<LayoutNode>, windows: &mut Vec<WindowId>) {
+        if let Some(node) = node {
+            match node {
+                LayoutNode::Window { id, .. } => {
+                    windows.push(*id);
+                }
+                LayoutNode::Container { children, .. } => {
+                    for child in children.iter() {
+                        Self::collect_windows_ordered(&Some(child.clone()), windows);
+                    }
+                }
+            }
+        }
+    }
+
+    fn check_window_in_tabbed_or_stacked_container(
+        node: &Option<LayoutNode>,
+        window_id: WindowId,
+    ) -> bool {
+        match node {
+            Some(LayoutNode::Window { .. }) => false,
+            Some(LayoutNode::Container {
+                layout, children, ..
+            }) => {
+                // Check if this container directly contains the window
+                let directly_contains = children.iter().any(
+                    |child| matches!(child, LayoutNode::Window { id, .. } if *id == window_id),
+                );
+
+                if directly_contains
+                    && matches!(layout, ContainerLayout::Tabbed | ContainerLayout::Stacked)
+                {
+                    return true;
+                }
+
+                // Recurse into children
+                children.iter().any(|child| {
+                    Self::check_window_in_tabbed_or_stacked_container(
+                        &Some(child.clone()),
+                        window_id,
+                    )
+                })
+            }
+            None => false,
         }
     }
 }
