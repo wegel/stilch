@@ -77,6 +77,10 @@ pub enum KeyAction {
     MoveWorkspaceToOutput(Direction),
     /// Layout commands (tabbed, stacking, etc)
     Layout(LayoutCommand),
+    /// Move tab to the left in a tabbed/stacked container
+    MoveTabLeft,
+    /// Move tab to the right in a tabbed/stacked container
+    MoveTabRight,
 }
 
 impl<BackendData: Backend> StilchState<BackendData> {
@@ -408,6 +412,8 @@ impl<BackendData: Backend> StilchState<BackendData> {
             Command::FloatingToggle => Some(KeyAction::FloatingToggle),
             Command::MoveWorkspaceToOutput(dir) => Some(KeyAction::MoveWorkspaceToOutput(*dir)),
             Command::Layout(layout_cmd) => Some(KeyAction::Layout(layout_cmd.clone())),
+            Command::MoveTabLeft => Some(KeyAction::MoveTabLeft),
+            Command::MoveTabRight => Some(KeyAction::MoveTabRight),
             _ => None, // Unimplemented commands
         }
     }
@@ -692,6 +698,35 @@ impl<BackendData: Backend> StilchState<BackendData> {
                 debug!("Move window {:?}", dir);
 
                 if let Some(window_element) = self.focused_window() {
+                    // Check if we're in a tabbed/stacked container and moving left/right
+                    if matches!(dir, Direction::Left | Direction::Right) {
+                        // Get the window ID
+                        if let Some(window_id) =
+                            self.window_registry().find_by_element(&window_element)
+                        {
+                            // Get the workspace that contains this window
+                            if let Some(workspace_id) =
+                                self.workspace_manager.find_window_workspace(window_id)
+                            {
+                                // Check if the window is in a tabbed/stacked container
+                                if let Some(workspace) =
+                                    self.workspace_manager.get_workspace(workspace_id)
+                                {
+                                    if workspace
+                                        .layout
+                                        .is_window_in_tabbed_or_stacked_container(window_id)
+                                    {
+                                        // In tabbed/stacked container, move tab instead
+                                        let left = matches!(dir, Direction::Left);
+                                        self.handle_move_tab(left);
+                                        return;
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // Otherwise, do normal window movement
                     self.move_window_direction(window_element, dir);
                 }
             }
@@ -940,6 +975,16 @@ impl<BackendData: Backend> StilchState<BackendData> {
                 self.handle_layout_command(layout_cmd);
             }
 
+            KeyAction::MoveTabLeft => {
+                tracing::info!("Moving tab left");
+                self.handle_move_tab(true);
+            }
+
+            KeyAction::MoveTabRight => {
+                tracing::info!("Moving tab right");
+                self.handle_move_tab(false);
+            }
+
             KeyAction::None => {}
         }
     }
@@ -1014,5 +1059,51 @@ impl<BackendData: Backend> StilchState<BackendData> {
             // Apply the workspace layout to actually update the space
             self.apply_workspace_layout(workspace_id);
         }
+    }
+
+    fn handle_move_tab(&mut self, left: bool) {
+        // Get the current focused window element
+        let Some(focused_element) = self.focused_window() else {
+            tracing::warn!("No focused window for move tab command");
+            return;
+        };
+
+        // Get the window ID from the element
+        let Some(focused_window_id) = self.window_registry().find_by_element(&focused_element)
+        else {
+            tracing::warn!("Focused element not found in window registry");
+            return;
+        };
+
+        // Get the workspace that contains this window
+        let Some(workspace_id) = self
+            .workspace_manager
+            .find_window_workspace(focused_window_id)
+        else {
+            tracing::warn!("Window not found in any workspace");
+            return;
+        };
+
+        // Move the tab in the layout tree
+        if let Some(workspace) = self.workspace_manager.get_workspace_mut(workspace_id) {
+            let moved = if left {
+                workspace.layout.move_tab_left(focused_window_id)
+            } else {
+                workspace.layout.move_tab_right(focused_window_id)
+            };
+
+            if moved {
+                tracing::info!(
+                    "Successfully moved tab {} {}",
+                    focused_window_id,
+                    if left { "left" } else { "right" }
+                );
+            } else {
+                tracing::info!("Tab move failed - likely at boundary");
+            }
+        }
+
+        // Apply the workspace layout to actually update the space
+        self.apply_workspace_layout(workspace_id);
     }
 }

@@ -249,6 +249,8 @@ fn parse_command(config: &Config, parts: &[&str]) -> Result<Command, Box<dyn std
         "splith" => Command::SplitHorizontal,
         "splitv" => Command::SplitVertical,
         "splitauto" => Command::SplitAutomatic,
+        "movetableft" => Command::MoveTabLeft,
+        "movetabright" => Command::MoveTabRight,
         "focus" => {
             if parts.len() < 2 {
                 return Err("focus requires direction".into());

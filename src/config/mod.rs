@@ -83,6 +83,10 @@ pub enum Command {
     SplitVertical,
     /// Set automatic (BSP) split
     SplitAutomatic,
+    /// Move tab left in tabbed/stacked container
+    MoveTabLeft,
+    /// Move tab right in tabbed/stacked container
+    MoveTabRight,
 }
 
 #[derive(Debug, Clone, Copy)]
