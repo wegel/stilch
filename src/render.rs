@@ -207,6 +207,7 @@ where
 pub struct TabBarData {
     pub tabs: Vec<crate::tab_bar::TabInfo>,
     pub geometry: Rectangle<i32, Logical>,
+    pub is_stacked: bool,
 }
 
 /// Collect tab bar data for rendering
@@ -285,6 +286,38 @@ where
                 tab_bars.push(TabBarData {
                     tabs: tab_infos,
                     geometry: container_geometry,
+                    is_stacked: false,
+                });
+            }
+            
+            // Find all stacked containers and their windows
+            let stacked_containers = layout.find_stacked_containers();
+
+            for (container_geometry, tabs) in stacked_containers {
+                // Create tab info for each window
+                let tab_infos: Vec<_> = tabs
+                    .iter()
+                    .map(|(window_id, is_active)| {
+                        // Get window element to get title
+                        let title = if let Some(managed) = state.window_registry().get(*window_id) {
+                            managed.element.title()
+                        } else {
+                            format!("Window {window_id}")
+                        };
+
+                        crate::tab_bar::TabInfo {
+                            window_id: *window_id,
+                            title,
+                            app_id: None,
+                            is_active: *is_active,
+                        }
+                    })
+                    .collect();
+
+                tab_bars.push(TabBarData {
+                    tabs: tab_infos,
+                    geometry: container_geometry,
+                    is_stacked: true,
                 });
             }
         }
@@ -306,12 +339,21 @@ where
     let mut elements = Vec::new();
 
     for data in tab_bar_data {
-        let tab_elements = crate::tab_bar::create_tab_bar_elements_with_text(
-            renderer,
-            data.tabs.clone(),
-            data.geometry,
-            scale,
-        );
+        let tab_elements = if data.is_stacked {
+            crate::tab_bar::create_stacked_bar_elements_with_text(
+                renderer,
+                data.tabs.clone(),
+                data.geometry,
+                scale,
+            )
+        } else {
+            crate::tab_bar::create_tab_bar_elements_with_text(
+                renderer,
+                data.tabs.clone(),
+                data.geometry,
+                scale,
+            )
+        };
 
         for element in tab_elements {
             elements.push(CustomRenderElements::TabBar(element));

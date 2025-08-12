@@ -51,32 +51,56 @@ pub struct TabBar {
     _colors: TabBarColors,
     buffers: Vec<SolidColorBuffer>,
     text_cache: TabTextCache,
+    is_stacked: bool,
 }
 
 impl TabBar {
     pub fn new(tabs: Vec<TabInfo>, geometry: Rectangle<i32, Logical>) -> Self {
+        Self::new_internal(tabs, geometry, false)
+    }
+    
+    pub fn new_stacked(tabs: Vec<TabInfo>, geometry: Rectangle<i32, Logical>) -> Self {
+        Self::new_internal(tabs, geometry, true)
+    }
+    
+    fn new_internal(tabs: Vec<TabInfo>, geometry: Rectangle<i32, Logical>, is_stacked: bool) -> Self {
         let colors = TabBarColors::default();
         let mut buffers = Vec::new();
 
         // Create solid color buffers for each tab
         if !tabs.is_empty() {
-            let tab_width = geometry.size.w / tabs.len() as i32;
+            if is_stacked {
+                // For stacked, each title bar is full width
+                for tab in tabs.iter() {
+                    let color = if tab.is_active {
+                        colors.active_bg
+                    } else {
+                        colors.inactive_bg
+                    };
 
-            for (i, tab) in tabs.iter().enumerate() {
-                let color = if tab.is_active {
-                    colors.active_bg
-                } else {
-                    colors.inactive_bg
-                };
+                    let buffer = SolidColorBuffer::new(Size::from((geometry.size.w, TAB_BAR_HEIGHT)), color);
+                    buffers.push(buffer);
+                }
+            } else {
+                // For tabbed, divide width among tabs
+                let tab_width = geometry.size.w / tabs.len() as i32;
 
-                let buffer = SolidColorBuffer::new(Size::from((tab_width, TAB_BAR_HEIGHT)), color);
-                buffers.push(buffer);
+                for (i, tab) in tabs.iter().enumerate() {
+                    let color = if tab.is_active {
+                        colors.active_bg
+                    } else {
+                        colors.inactive_bg
+                    };
 
-                // Add border buffer between tabs
-                if i < tabs.len() - 1 {
-                    let border_buffer =
-                        SolidColorBuffer::new(Size::from((1, TAB_BAR_HEIGHT)), colors.border);
-                    buffers.push(border_buffer);
+                    let buffer = SolidColorBuffer::new(Size::from((tab_width, TAB_BAR_HEIGHT)), color);
+                    buffers.push(buffer);
+
+                    // Add border buffer between tabs
+                    if i < tabs.len() - 1 {
+                        let border_buffer =
+                            SolidColorBuffer::new(Size::from((1, TAB_BAR_HEIGHT)), colors.border);
+                        buffers.push(border_buffer);
+                    }
                 }
             }
         }
@@ -87,6 +111,7 @@ impl TabBar {
             _colors: colors,
             buffers,
             text_cache: TabTextCache::new(),
+            is_stacked,
         }
     }
 
@@ -106,42 +131,81 @@ impl TabBar {
             return elements;
         }
 
-        let tab_width = self.geometry.size.w / self.tabs.len() as i32;
-        let mut x_offset = 0;
-
-        for tab in &self.tabs {
-            // Get or create the rendered tab with text
-            if let Ok(buffer) = self.text_cache.get_or_create_tab(
-                &tab.title,
-                tab_width,
-                TAB_BAR_HEIGHT,
-                tab.is_active,
-                scale,
-            ) {
-                let location = Point::<i32, Logical>::from((
-                    self.geometry.loc.x + x_offset,
-                    self.geometry.loc.y,
-                ))
-                .to_f64()
-                .to_physical(scale)
-                .to_i32_round::<i32>();
-
-                // Create render element from buffer
-                // The buffer already has the correct size and format
-                if let Ok(elem) = MemoryRenderBufferRenderElement::from_buffer(
-                    renderer,
-                    location.to_f64(), // location as f64 Point
-                    &buffer,
-                    None, // No custom src
-                    None, // No damage tracking
-                    None, // No opaque regions
-                    Kind::Unspecified,
+        if self.is_stacked {
+            // For stacked layout, render title bars vertically
+            let mut y_offset = 0;
+            
+            for tab in self.tabs.iter() {
+                // Get or create the rendered tab with text
+                if let Ok(buffer) = self.text_cache.get_or_create_tab(
+                    &tab.title,
+                    self.geometry.size.w,
+                    TAB_BAR_HEIGHT,
+                    tab.is_active,
+                    scale,
                 ) {
-                    elements.push(elem);
-                }
-            }
+                    let location = Point::<i32, Logical>::from((
+                        self.geometry.loc.x,
+                        self.geometry.loc.y + y_offset,
+                    ))
+                    .to_f64()
+                    .to_physical(scale)
+                    .to_i32_round::<i32>();
 
-            x_offset += tab_width;
+                    // Create render element from buffer
+                    if let Ok(elem) = MemoryRenderBufferRenderElement::from_buffer(
+                        renderer,
+                        location.to_f64(),
+                        &buffer,
+                        None,
+                        None,
+                        None,
+                        Kind::Unspecified,
+                    ) {
+                        elements.push(elem);
+                    }
+                }
+
+                y_offset += TAB_BAR_HEIGHT;
+            }
+        } else {
+            // For tabbed layout, render title bars horizontally
+            let tab_width = self.geometry.size.w / self.tabs.len() as i32;
+            let mut x_offset = 0;
+
+            for tab in &self.tabs {
+                // Get or create the rendered tab with text
+                if let Ok(buffer) = self.text_cache.get_or_create_tab(
+                    &tab.title,
+                    tab_width,
+                    TAB_BAR_HEIGHT,
+                    tab.is_active,
+                    scale,
+                ) {
+                    let location = Point::<i32, Logical>::from((
+                        self.geometry.loc.x + x_offset,
+                        self.geometry.loc.y,
+                    ))
+                    .to_f64()
+                    .to_physical(scale)
+                    .to_i32_round::<i32>();
+
+                    // Create render element from buffer
+                    if let Ok(elem) = MemoryRenderBufferRenderElement::from_buffer(
+                        renderer,
+                        location.to_f64(),
+                        &buffer,
+                        None,
+                        None,
+                        None,
+                        Kind::Unspecified,
+                    ) {
+                        elements.push(elem);
+                    }
+                }
+
+                x_offset += tab_width;
+            }
         }
 
         elements
@@ -204,6 +268,26 @@ where
     };
 
     let mut tab_bar = TabBar::new(tabs, tab_bar_geometry);
+    tab_bar.render_elements_with_text(renderer, scale)
+}
+
+/// Create stacked bar render elements with text for a stacked container
+pub fn create_stacked_bar_elements_with_text<R>(
+    renderer: &mut R,
+    tabs: Vec<TabInfo>,
+    container_geometry: Rectangle<i32, Logical>,
+    scale: Scale<f64>,
+) -> Vec<MemoryRenderBufferRenderElement<R>>
+where
+    R: Renderer + ImportAll + ImportMem,
+    R::TextureId: Clone + Send + 'static,
+{
+    let stacked_bar_geometry = Rectangle {
+        loc: container_geometry.loc,
+        size: Size::from((container_geometry.size.w, TAB_BAR_HEIGHT * tabs.len() as i32)),
+    };
+
+    let mut tab_bar = TabBar::new_stacked(tabs, stacked_bar_geometry);
     tab_bar.render_elements_with_text(renderer, scale)
 }
 
