@@ -392,9 +392,10 @@ impl LayoutTree {
     }
 
     /// Toggle between horizontal and vertical split for a container
-    pub fn toggle_container_split(&mut self, window_id: WindowId) {
+    /// If the container is tabbed/stacked, convert it to split using the preferred direction
+    pub fn toggle_container_split(&mut self, window_id: WindowId, preferred_split: SplitDirection) {
         if let Some(root) = &mut self.root {
-            Self::toggle_container_split_recursive(root, window_id);
+            Self::toggle_container_split_recursive(root, window_id, preferred_split);
         }
     }
 
@@ -1168,7 +1169,11 @@ impl LayoutTree {
         }
     }
 
-    fn toggle_container_split_recursive(node: &mut LayoutNode, window_id: WindowId) {
+    fn toggle_container_split_recursive(
+        node: &mut LayoutNode,
+        window_id: WindowId,
+        preferred_split: SplitDirection,
+    ) {
         match node {
             LayoutNode::Window { .. } => {}
             LayoutNode::Container {
@@ -1182,11 +1187,17 @@ impl LayoutTree {
                     *layout = match *layout {
                         ContainerLayout::Horizontal => ContainerLayout::Vertical,
                         ContainerLayout::Vertical => ContainerLayout::Horizontal,
-                        other => other, // Don't change tabbed/stacked
+                        ContainerLayout::Tabbed | ContainerLayout::Stacked => {
+                            // Convert tabbed/stacked to split using the preferred direction
+                            match preferred_split {
+                                SplitDirection::Horizontal => ContainerLayout::Horizontal,
+                                SplitDirection::Vertical => ContainerLayout::Vertical,
+                            }
+                        }
                     };
                 } else {
                     for child in children.iter_mut() {
-                        Self::toggle_container_split_recursive(child, window_id);
+                        Self::toggle_container_split_recursive(child, window_id, preferred_split);
                     }
                 }
             }

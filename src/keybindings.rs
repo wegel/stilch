@@ -995,7 +995,9 @@ impl<BackendData: Backend> StilchState<BackendData> {
                     }
                     LayoutCommand::ToggleSplit => {
                         info!("Toggling split layout");
-                        workspace.layout.toggle_container_split(focused_window_id);
+                        workspace
+                            .layout
+                            .toggle_container_split(focused_window_id, workspace.next_split);
                         workspace.relayout();
                     }
                     LayoutCommand::SplitH => {
