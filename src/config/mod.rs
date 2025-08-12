@@ -3,6 +3,8 @@ use std::collections::HashMap;
 use std::path::Path;
 
 pub mod parser;
+#[cfg(test)]
+mod tests;
 
 #[derive(Debug, Clone)]
 pub struct Config {
@@ -24,6 +26,8 @@ pub struct Config {
     pub font: String,
     /// Startup commands (exec without keybinding)
     pub startup_commands: Vec<String>,
+    /// Input device configurations
+    pub input_configs: Vec<InputConfig>,
 }
 
 #[derive(Debug, Clone)]
@@ -201,6 +205,7 @@ impl Default for Config {
             border: BorderConfig::default(),
             font: "monospace 10".to_string(),
             startup_commands: Vec::new(),
+            input_configs: Vec::new(),
         }
     }
 }
@@ -226,6 +231,59 @@ impl Default for BorderConfig {
             floating_width: 2,
         }
     }
+}
+
+#[derive(Debug, Clone)]
+pub struct InputConfig {
+    /// Device identifier pattern (e.g., "type:keyboard", "*:mouse", or specific device name)
+    pub identifier: String,
+    /// Keyboard repeat delay in milliseconds
+    pub repeat_delay: Option<u32>,
+    /// Keyboard repeat rate (characters per second)
+    pub repeat_rate: Option<u32>,
+    /// XKB keyboard layout
+    pub xkb_layout: Option<String>,
+    /// XKB keyboard variant
+    pub xkb_variant: Option<String>,
+    /// XKB keyboard model
+    pub xkb_model: Option<String>,
+    /// XKB keyboard options
+    pub xkb_options: Option<String>,
+    /// Mouse acceleration speed (-1.0 to 1.0)
+    pub accel_speed: Option<f64>,
+    /// Mouse acceleration profile (flat, adaptive)
+    pub accel_profile: Option<AccelProfile>,
+    /// Natural scrolling
+    pub natural_scroll: Option<bool>,
+    /// Tap to click
+    pub tap: Option<bool>,
+    /// Tap button map (lrm, lmr)
+    pub tap_button_map: Option<TapButtonMap>,
+    /// Scroll method (two_finger, edge, on_button_down)
+    pub scroll_method: Option<ScrollMethod>,
+    /// Left handed mode
+    pub left_handed: Option<bool>,
+    /// Middle button emulation
+    pub middle_emulation: Option<bool>,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum AccelProfile {
+    Flat,
+    Adaptive,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum TapButtonMap {
+    Lrm, // 1 finger = left, 2 = right, 3 = middle
+    Lmr, // 1 finger = left, 2 = middle, 3 = right
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum ScrollMethod {
+    TwoFinger,
+    Edge,
+    OnButtonDown,
 }
 
 impl Config {

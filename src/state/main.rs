@@ -306,12 +306,72 @@ impl<BackendData: Backend + 'static> StilchState<BackendData> {
         // init globals
         let mut seat_state = SeatState::new();
 
+        // Load configuration
+        let config = load_config();
+
         // init input
         let seat_name = backend_data.seat_name();
         let mut seat = seat_state.new_wl_seat(&dh, seat_name.clone());
 
         let pointer = seat.add_pointer();
-        seat.add_keyboard(XkbConfig::default(), 200, 25)
+
+        // Get keyboard config from the first keyboard input config, or use defaults
+        let keyboard_config = config
+            .input_configs
+            .iter()
+            .find(|c| c.identifier == "type:keyboard" || c.identifier == "*");
+
+        let mut delay = 200;
+        let mut rate = 25;
+
+        // Create XkbConfig with leaked strings to ensure 'static lifetime
+        let xkb_config = if let Some(cfg) = keyboard_config {
+            if let Some(d) = cfg.repeat_delay {
+                delay = d as i32;
+            }
+            if let Some(r) = cfg.repeat_rate {
+                rate = r as i32;
+            }
+
+            // Leak the strings to create 'static references
+            // This is safe since the compositor runs for the entire program lifetime
+            let layout: &'static str = if let Some(ref l) = cfg.xkb_layout {
+                Box::leak(l.clone().into_boxed_str())
+            } else {
+                ""
+            };
+
+            let variant: &'static str = if let Some(ref v) = cfg.xkb_variant {
+                Box::leak(v.clone().into_boxed_str())
+            } else {
+                ""
+            };
+
+            let model: &'static str = if let Some(ref m) = cfg.xkb_model {
+                Box::leak(m.clone().into_boxed_str())
+            } else {
+                ""
+            };
+
+            let options = cfg.xkb_options.clone();
+
+            info!(
+                "Configuring keyboard with layout: '{}', variant: '{}', model: '{}'",
+                layout, variant, model
+            );
+
+            XkbConfig {
+                rules: "", // Use default rules
+                model,
+                layout,
+                variant,
+                options,
+            }
+        } else {
+            XkbConfig::default()
+        };
+
+        seat.add_keyboard(xkb_config, delay, rate)
             .unwrap_or_else(|e| {
                 error!("Failed to initialize the keyboard: {:?}", e);
                 std::process::exit(1);
@@ -344,7 +404,6 @@ impl<BackendData: Backend + 'static> StilchState<BackendData> {
 
         let input_manager = crate::input::InputManager::new(seat, pointer);
 
-        let config = load_config();
         let inner_gap = config.gaps.inner.unwrap_or(10);
 
         StilchState {
