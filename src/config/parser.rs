@@ -36,6 +36,7 @@ fn parse_line(config: &mut Config, line: &str) -> Result<(), Box<dyn std::error:
         "gaps" => parse_gaps(config, &parts[1..])?,
         "default_border" => parse_border(config, &parts[1..])?,
         "font" => parse_font(config, &parts[1..])?,
+        "input" => parse_input(config, line)?,
         _ => {
             // Ignore unrecognized commands for now
         }
@@ -614,5 +615,129 @@ fn parse_font(config: &mut Config, parts: &[&str]) -> Result<(), Box<dyn std::er
     if parts.len() >= 2 && parts.first() == Some(&"pango:") {
         config.font = parts[1..].join(" ");
     }
+    Ok(())
+}
+
+fn parse_input(config: &mut Config, line: &str) -> Result<(), Box<dyn std::error::Error>> {
+    // Input lines are special - they have the format:
+    // input <identifier> { <settings> }
+    // We need to parse this differently than other commands
+
+    // First, extract the identifier and the block content
+    let input_start = line.find("input").unwrap() + 5;
+    let rest = line[input_start..].trim_start();
+
+    // Find the opening brace
+    let brace_pos = rest
+        .find('{')
+        .ok_or("Missing opening brace for input block")?;
+    let identifier = rest[..brace_pos].trim().to_string();
+
+    // For now, we'll just store the input config if it's in a single line
+    // In a real implementation, we'd need to handle multi-line blocks
+    if let Some(closing_brace) = rest.rfind('}') {
+        let content = &rest[brace_pos + 1..closing_brace];
+
+        let mut input_config = InputConfig {
+            identifier,
+            repeat_delay: None,
+            repeat_rate: None,
+            xkb_layout: None,
+            xkb_variant: None,
+            xkb_model: None,
+            xkb_options: None,
+            accel_speed: None,
+            accel_profile: None,
+            natural_scroll: None,
+            tap: None,
+            tap_button_map: None,
+            scroll_method: None,
+            left_handed: None,
+            middle_emulation: None,
+        };
+
+        // Parse each setting
+        for setting in content.split_whitespace().collect::<Vec<_>>().chunks(2) {
+            if setting.len() == 2 {
+                match setting[0] {
+                    "repeat_delay" => {
+                        input_config.repeat_delay = Some(setting[1].parse()?);
+                    }
+                    "repeat_rate" => {
+                        input_config.repeat_rate = Some(setting[1].parse()?);
+                    }
+                    "xkb_layout" => {
+                        input_config.xkb_layout = Some(setting[1].to_string());
+                    }
+                    "xkb_variant" => {
+                        input_config.xkb_variant = Some(setting[1].to_string());
+                    }
+                    "xkb_model" => {
+                        input_config.xkb_model = Some(setting[1].to_string());
+                    }
+                    "xkb_options" => {
+                        input_config.xkb_options = Some(setting[1].to_string());
+                    }
+                    "accel_speed" => {
+                        input_config.accel_speed = Some(setting[1].parse()?);
+                    }
+                    "accel_profile" => {
+                        input_config.accel_profile = match setting[1] {
+                            "flat" => Some(AccelProfile::Flat),
+                            "adaptive" => Some(AccelProfile::Adaptive),
+                            _ => None,
+                        };
+                    }
+                    "natural_scroll" => {
+                        input_config.natural_scroll = match setting[1] {
+                            "enabled" | "yes" | "true" | "on" => Some(true),
+                            "disabled" | "no" | "false" | "off" => Some(false),
+                            _ => None,
+                        };
+                    }
+                    "tap" => {
+                        input_config.tap = match setting[1] {
+                            "enabled" | "yes" | "true" | "on" => Some(true),
+                            "disabled" | "no" | "false" | "off" => Some(false),
+                            _ => None,
+                        };
+                    }
+                    "tap_button_map" => {
+                        input_config.tap_button_map = match setting[1] {
+                            "lrm" => Some(TapButtonMap::Lrm),
+                            "lmr" => Some(TapButtonMap::Lmr),
+                            _ => None,
+                        };
+                    }
+                    "scroll_method" => {
+                        input_config.scroll_method = match setting[1] {
+                            "two_finger" => Some(ScrollMethod::TwoFinger),
+                            "edge" => Some(ScrollMethod::Edge),
+                            "on_button_down" => Some(ScrollMethod::OnButtonDown),
+                            _ => None,
+                        };
+                    }
+                    "left_handed" => {
+                        input_config.left_handed = match setting[1] {
+                            "enabled" | "yes" | "true" | "on" => Some(true),
+                            "disabled" | "no" | "false" | "off" => Some(false),
+                            _ => None,
+                        };
+                    }
+                    "middle_emulation" => {
+                        input_config.middle_emulation = match setting[1] {
+                            "enabled" | "yes" | "true" | "on" => Some(true),
+                            "disabled" | "no" | "false" | "off" => Some(false),
+                            _ => None,
+                        };
+                    }
+                    _ => {}
+                }
+            }
+        }
+
+        config.input_configs.push(input_config);
+    }
+
     Ok(())
 }
