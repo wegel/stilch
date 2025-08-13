@@ -376,9 +376,10 @@ fn parse_workspace_target(parts: &[&str]) -> Result<WorkspaceTarget, Box<dyn std
 }
 
 fn parse_output(config: &mut Config, parts: &[&str]) -> Result<(), Box<dyn std::error::Error>> {
-    // Format: output <name> [scale <value>] [resolution <WxH>] [position <x,y>] [split <horizontal|vertical|grid> <count>]
+    // Format: output <name> [scale <value>] [resolution <WxH>] [position <x,y>] [transform <value>] [split <horizontal|vertical|grid> <count>]
     // Note: resolution and position are in physical pixels
     // Note: parts[0] is the output name since we're called with &parts[1..]
+    // Transform values match sway: normal, 90, 180, 270, flipped, flipped-90, flipped-180, flipped-270
     if parts.len() < 1 {
         return Err("output requires at least a name".into());
     }
@@ -437,6 +438,23 @@ fn parse_output(config: &mut Config, parts: &[&str]) -> Result<(), Box<dyn std::
                     .parse()
                     .map_err(|_| format!("Invalid y position: {y_str}"))?;
                 output_config.position = Some((x, y));
+                i += 2;
+            }
+            "transform" if i + 1 < parts.len() => {
+                // Parse transform values like "90", "180", "270", "flipped", "flipped-90", etc.
+                let transform_str = parts[i + 1].to_lowercase();
+                let transform = match transform_str.as_str() {
+                    "normal" | "0" => "normal",
+                    "90" => "90",
+                    "180" => "180", 
+                    "270" => "270",
+                    "flipped" => "flipped",
+                    "flipped-90" => "flipped-90",
+                    "flipped-180" => "flipped-180",
+                    "flipped-270" => "flipped-270",
+                    _ => return Err(format!("Invalid transform value: {}. Valid values are: normal, 90, 180, 270, flipped, flipped-90, flipped-180, flipped-270", parts[i + 1]).into()),
+                };
+                output_config.transform = Some(transform.to_string());
                 i += 2;
             }
             "split" if i + 2 < parts.len() => {

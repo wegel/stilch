@@ -1251,15 +1251,16 @@ impl StilchState<UdevData> {
 
             output.set_preferred(wl_mode);
 
+            // Find output config if it exists
+            let output_config = self
+                .config
+                .outputs
+                .iter()
+                .find(|o| o.name == output_name);
+
             // Determine scale from config or auto-detect
             let scale = {
-                // First check if there's a configured scale for this output
-                let configured_scale = self
-                    .config
-                    .outputs
-                    .iter()
-                    .find(|o| o.name == output_name)
-                    .and_then(|o| o.scale);
+                let configured_scale = output_config.and_then(|o| o.scale);
 
                 if let Some(scale) = configured_scale {
                     info!(
@@ -1280,9 +1281,34 @@ impl StilchState<UdevData> {
                 }
             };
 
+            // Determine transform from config
+            let transform = output_config.and_then(|o| {
+                o.transform.as_ref().and_then(|t| {
+                    use smithay::utils::Transform;
+                    match t.as_str() {
+                        "normal" | "0" => Some(Transform::Normal),
+                        "90" => Some(Transform::_90),
+                        "180" => Some(Transform::_180),
+                        "270" => Some(Transform::_270),
+                        "flipped" => Some(Transform::Flipped),
+                        "flipped-90" => Some(Transform::Flipped90),
+                        "flipped-180" => Some(Transform::Flipped180),
+                        "flipped-270" => Some(Transform::Flipped270),
+                        _ => {
+                            warn!("Invalid transform value '{}' for output {}, using normal", t, output_name);
+                            None
+                        }
+                    }
+                })
+            });
+
+            if let Some(t) = transform {
+                info!("Using configured transform {:?} for output {}", t, output_name);
+            }
+
             output.change_current_state(
                 Some(wl_mode),
-                None,
+                transform,
                 Some(smithay::output::Scale::Fractional(scale)),
                 Some(position),
             );
