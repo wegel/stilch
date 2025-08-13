@@ -8,8 +8,8 @@ use smithay::backend::renderer::{
 };
 use smithay::utils::{Logical, Point, Rectangle, Scale, Size};
 
-mod text_render;
-use text_render::TabTextCache;
+pub mod text_render;
+pub use text_render::TabTextCache;
 
 /// Tab bar height in logical pixels
 pub const TAB_BAR_HEIGHT: i32 = 30;
@@ -45,25 +45,54 @@ pub struct TabInfo {
 }
 
 /// Tab bar render element using text rendering
-pub struct TabBar {
+pub struct TabBar<'a> {
     tabs: Vec<TabInfo>,
     geometry: Rectangle<i32, Logical>,
     _colors: TabBarColors,
     buffers: Vec<SolidColorBuffer>,
-    text_cache: TabTextCache,
+    text_cache: &'a mut TabTextCache,
     is_stacked: bool,
 }
 
-impl TabBar {
+impl<'a> TabBar<'a> {
     pub fn new(tabs: Vec<TabInfo>, geometry: Rectangle<i32, Logical>) -> Self {
         Self::new_internal(tabs, geometry, false)
     }
-    
+
     pub fn new_stacked(tabs: Vec<TabInfo>, geometry: Rectangle<i32, Logical>) -> Self {
         Self::new_internal(tabs, geometry, true)
     }
-    
-    fn new_internal(tabs: Vec<TabInfo>, geometry: Rectangle<i32, Logical>, is_stacked: bool) -> Self {
+
+    pub fn new_with_cache(
+        tabs: Vec<TabInfo>,
+        geometry: Rectangle<i32, Logical>,
+        text_cache: &'a mut TabTextCache,
+    ) -> Self {
+        Self::new_internal_with_cache(tabs, geometry, false, text_cache)
+    }
+
+    pub fn new_stacked_with_cache(
+        tabs: Vec<TabInfo>,
+        geometry: Rectangle<i32, Logical>,
+        text_cache: &'a mut TabTextCache,
+    ) -> Self {
+        Self::new_internal_with_cache(tabs, geometry, true, text_cache)
+    }
+
+    fn new_internal(
+        _tabs: Vec<TabInfo>,
+        _geometry: Rectangle<i32, Logical>,
+        _is_stacked: bool,
+    ) -> Self {
+        unreachable!("TabBar::new_internal cannot be used due to lifetime requirements. Use new_internal_with_cache instead.");
+    }
+
+    fn new_internal_with_cache(
+        tabs: Vec<TabInfo>,
+        geometry: Rectangle<i32, Logical>,
+        is_stacked: bool,
+        text_cache: &'a mut TabTextCache,
+    ) -> Self {
         let colors = TabBarColors::default();
         let mut buffers = Vec::new();
 
@@ -78,7 +107,8 @@ impl TabBar {
                         colors.inactive_bg
                     };
 
-                    let buffer = SolidColorBuffer::new(Size::from((geometry.size.w, TAB_BAR_HEIGHT)), color);
+                    let buffer =
+                        SolidColorBuffer::new(Size::from((geometry.size.w, TAB_BAR_HEIGHT)), color);
                     buffers.push(buffer);
                 }
             } else {
@@ -92,7 +122,8 @@ impl TabBar {
                         colors.inactive_bg
                     };
 
-                    let buffer = SolidColorBuffer::new(Size::from((tab_width, TAB_BAR_HEIGHT)), color);
+                    let buffer =
+                        SolidColorBuffer::new(Size::from((tab_width, TAB_BAR_HEIGHT)), color);
                     buffers.push(buffer);
 
                     // Add border buffer between tabs
@@ -110,7 +141,7 @@ impl TabBar {
             geometry,
             _colors: colors,
             buffers,
-            text_cache: TabTextCache::new(),
+            text_cache,
             is_stacked,
         }
     }
@@ -134,7 +165,7 @@ impl TabBar {
         if self.is_stacked {
             // For stacked layout, render title bars vertically
             let mut y_offset = 0;
-            
+
             for tab in self.tabs.iter() {
                 // Get or create the rendered tab with text
                 if let Ok(buffer) = self.text_cache.get_or_create_tab(
@@ -257,6 +288,7 @@ pub fn create_tab_bar_elements_with_text<R>(
     tabs: Vec<TabInfo>,
     container_geometry: Rectangle<i32, Logical>,
     scale: Scale<f64>,
+    text_cache: &mut TabTextCache,
 ) -> Vec<MemoryRenderBufferRenderElement<R>>
 where
     R: Renderer + ImportAll + ImportMem,
@@ -267,7 +299,7 @@ where
         size: Size::from((container_geometry.size.w, TAB_BAR_HEIGHT)),
     };
 
-    let mut tab_bar = TabBar::new(tabs, tab_bar_geometry);
+    let mut tab_bar = TabBar::new_with_cache(tabs, tab_bar_geometry, text_cache);
     tab_bar.render_elements_with_text(renderer, scale)
 }
 
@@ -277,6 +309,7 @@ pub fn create_stacked_bar_elements_with_text<R>(
     tabs: Vec<TabInfo>,
     container_geometry: Rectangle<i32, Logical>,
     scale: Scale<f64>,
+    text_cache: &mut TabTextCache,
 ) -> Vec<MemoryRenderBufferRenderElement<R>>
 where
     R: Renderer + ImportAll + ImportMem,
@@ -284,10 +317,13 @@ where
 {
     let stacked_bar_geometry = Rectangle {
         loc: container_geometry.loc,
-        size: Size::from((container_geometry.size.w, TAB_BAR_HEIGHT * tabs.len() as i32)),
+        size: Size::from((
+            container_geometry.size.w,
+            TAB_BAR_HEIGHT * tabs.len() as i32,
+        )),
     };
 
-    let mut tab_bar = TabBar::new_stacked(tabs, stacked_bar_geometry);
+    let mut tab_bar = TabBar::new_stacked_with_cache(tabs, stacked_bar_geometry, text_cache);
     tab_bar.render_elements_with_text(renderer, scale)
 }
 

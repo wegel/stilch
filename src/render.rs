@@ -147,6 +147,7 @@ pub fn output_elements<R>(
     renderer: &mut R,
     show_window_preview: bool,
     tab_bar_data: &[TabBarData],
+    text_cache: &mut crate::tab_bar::TabTextCache,
 ) -> (
     Vec<OutputRenderElements<R, WindowRenderElement<R>>>,
     Color32F,
@@ -182,7 +183,7 @@ where
 
         // Add tab bar elements
         let scale = Scale::from(output.current_scale().fractional_scale());
-        let tab_elements = generate_tab_bar_elements(renderer, tab_bar_data, scale);
+        let tab_elements = generate_tab_bar_elements(renderer, tab_bar_data, scale, text_cache);
         output_render_elements.extend(tab_elements.into_iter().map(OutputRenderElements::from));
 
         if show_window_preview && space.elements_for_output(output).count() > 0 {
@@ -289,7 +290,7 @@ where
                     is_stacked: false,
                 });
             }
-            
+
             // Find all stacked containers and their windows
             let stacked_containers = layout.find_stacked_containers();
 
@@ -331,6 +332,7 @@ pub fn generate_tab_bar_elements<R>(
     renderer: &mut R,
     tab_bar_data: &[TabBarData],
     scale: Scale<f64>,
+    text_cache: &mut crate::tab_bar::TabTextCache,
 ) -> Vec<CustomRenderElements<R>>
 where
     R: Renderer + ImportAll + ImportMem,
@@ -345,6 +347,7 @@ where
                 data.tabs.clone(),
                 data.geometry,
                 scale,
+                text_cache,
             )
         } else {
             crate::tab_bar::create_tab_bar_elements_with_text(
@@ -352,6 +355,7 @@ where
                 data.tabs.clone(),
                 data.geometry,
                 scale,
+                text_cache,
             )
         };
 
@@ -374,6 +378,7 @@ pub fn render_output<'a, 'd, R>(
     age: usize,
     show_window_preview: bool,
     tab_bar_data: &[TabBarData],
+    text_cache: &mut crate::tab_bar::TabTextCache,
 ) -> Result<RenderOutputResult<'d>, OutputDamageTrackerError<R::Error>>
 where
     R: Renderer + ImportAll + ImportMem,
@@ -386,6 +391,7 @@ where
         renderer,
         show_window_preview,
         tab_bar_data,
+        text_cache,
     );
     damage_tracker.render_output(renderer, framebuffer, age, &elements, clear_color)
 }

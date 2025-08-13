@@ -122,6 +122,9 @@ pub struct StilchState<BackendData: Backend + 'static> {
     pub seat_name: String,
     pub clock: Clock<Monotonic>,
 
+    // Tab text rendering cache
+    pub tab_text_cache: crate::tab_bar::text_render::TabTextCache,
+
     #[cfg(feature = "xwayland")]
     pub xwm: Option<X11Wm>,
     #[cfg(feature = "xwayland")]
@@ -424,6 +427,7 @@ impl<BackendData: Backend + 'static> StilchState<BackendData> {
             command_executor: CommandExecutor::new(),
             seat_name,
             clock,
+            tab_text_cache: crate::tab_bar::TabTextCache::new(),
 
             #[cfg(feature = "xwayland")]
             xwm: None,

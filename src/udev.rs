@@ -1987,6 +1987,7 @@ impl StilchState<UdevData> {
         let space = &self.window_manager.space;
         let pointer_element = &mut self.backend_data.pointer_element;
         let cursor_status = &mut self.input_manager.cursor_status;
+        let text_cache = &mut self.tab_text_cache;
 
         let result = render_surface(
             surface,
@@ -2000,6 +2001,7 @@ impl StilchState<UdevData> {
             cursor_status,
             show_window_preview,
             &tab_bar_data,
+            text_cache,
         );
         let reschedule = match result {
             Ok((has_rendered, states)) => {
@@ -2072,6 +2074,7 @@ fn render_surface<'a>(
     cursor_status: &mut CursorImageStatus,
     show_window_preview: bool,
     tab_bar_data: &[crate::render::TabBarData],
+    text_cache: &mut crate::tab_bar::TabTextCache,
 ) -> Result<(bool, RenderElementStates), SwapBuffersError> {
     let output_geometry = space.output_geometry(output).ok_or_else(|| {
         error!(
@@ -2168,6 +2171,7 @@ fn render_surface<'a>(
         renderer,
         show_window_preview,
         tab_bar_data,
+        text_cache,
     );
 
     let frame_mode = if surface.disable_direct_scanout {

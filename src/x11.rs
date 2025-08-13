@@ -461,6 +461,7 @@ pub fn run_x11() -> Result<(), Box<dyn std::error::Error>> {
                 age.into(),
                 show_window_preview,
                 &tab_bar_data,
+                &mut state.tab_text_cache,
             );
 
             match render_res {
