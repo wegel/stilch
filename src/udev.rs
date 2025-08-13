@@ -1252,11 +1252,7 @@ impl StilchState<UdevData> {
             output.set_preferred(wl_mode);
 
             // Find output config if it exists
-            let output_config = self
-                .config
-                .outputs
-                .iter()
-                .find(|o| o.name == output_name);
+            let output_config = self.config.outputs.iter().find(|o| o.name == output_name);
 
             // Determine scale from config or auto-detect
             let scale = {
@@ -1295,7 +1291,10 @@ impl StilchState<UdevData> {
                         "flipped-180" => Some(Transform::Flipped180),
                         "flipped-270" => Some(Transform::Flipped270),
                         _ => {
-                            warn!("Invalid transform value '{}' for output {}, using normal", t, output_name);
+                            warn!(
+                                "Invalid transform value '{}' for output {}, using normal",
+                                t, output_name
+                            );
                             None
                         }
                     }
@@ -1303,7 +1302,10 @@ impl StilchState<UdevData> {
             });
 
             if let Some(t) = transform {
-                info!("Using configured transform {:?} for output {}", t, output_name);
+                info!(
+                    "Using configured transform {:?} for output {}",
+                    t, output_name
+                );
             }
 
             output.change_current_state(
@@ -1405,7 +1407,12 @@ impl StilchState<UdevData> {
             device.surfaces.insert(crtc, surface);
 
             // Check if this is a 4K display and split it
-            let logical_size = wl_mode.size.to_logical(1);
+            // Use the actual output scale and transform to compute the logical size correctly
+            let physical_size = output.current_transform().transform_size(wl_mode.size);
+            let logical_size = physical_size
+                .to_f64()
+                .to_logical(output.current_scale().fractional_scale())
+                .to_i32_round();
             let output_geometry = Rectangle::<i32, Logical>::new(position, logical_size);
 
             // Store output reference before moving it
@@ -1954,18 +1961,18 @@ impl StilchState<UdevData> {
         // When using fractional scaling like 1.5, we were asking for 48 (24*2) but getting 16
         // It's better to use scale 1 (24px) for 1.5x than to get a tiny 16px cursor
         let scale = if fractional_scale <= 1.25 {
-            1  // 24px cursor for scales up to 1.25
+            1 // 24px cursor for scales up to 1.25
         } else if fractional_scale <= 1.75 {
             // For 1.5x scaling, stay with scale 1 (24px cursor)
             // This is better than trying scale 2 which would request 48px
             // and potentially get a 16px cursor if 48px isn't available
             1
         } else if fractional_scale <= 2.25 {
-            2  // 48px cursor for scales around 2
+            2 // 48px cursor for scales around 2
         } else if fractional_scale <= 3.0 {
-            2  // Still use 48px up to 3x to avoid huge cursors
+            2 // Still use 48px up to 3x to avoid huge cursors
         } else {
-            3  // 72px for very high scales
+            3 // 72px for very high scales
         };
         let time = self.clock.now().into();
 

@@ -218,6 +218,26 @@ impl TestClient {
         Ok(())
     }
 
+    /// Move window to position
+    pub fn move_window(&self, id: u64, x: i32, y: i32) -> Result<(), Box<dyn std::error::Error>> {
+        let response = self.send_command(&serde_json::json!({
+            "type": "MoveWindow",
+            "id": id,
+            "x": x,
+            "y": y
+        }))?;
+
+        if response.get("type").and_then(|t| t.as_str()) == Some("Error") {
+            return Err(response
+                .get("message")
+                .and_then(|m| m.as_str())
+                .unwrap_or("Unknown error")
+                .into());
+        }
+
+        Ok(())
+    }
+
     /// Click at a specific location
     pub fn click_at(&self, x: i32, y: i32) -> Result<(), Box<dyn std::error::Error>> {
         let response = self.send_command(&serde_json::json!({
