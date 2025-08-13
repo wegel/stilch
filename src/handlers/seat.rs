@@ -59,7 +59,8 @@ impl<BackendData: Backend> SeatHandler for StilchState<BackendData> {
     }
 
     fn cursor_image(&mut self, _seat: &Seat<Self>, image: CursorImageStatus) {
-        self.input_manager.cursor_status = image;
+        self.input_manager.cursor_status = image.clone();
+        self.input_manager.cursor_manager.set_cursor_image(image);
     }
 
     fn led_state_changed(&mut self, _seat: &Seat<Self>, led_state: LedState) {
@@ -71,7 +72,8 @@ impl<BackendData: Backend> TabletSeatHandler for StilchState<BackendData> {
     fn tablet_tool_image(&mut self, _tool: &TabletToolDescriptor, image: CursorImageStatus) {
         // Tablet tools can have their own cursors, but for simplicity
         // we'll share the same cursor status with the pointer
-        self.input_manager.cursor_status = image;
+        self.input_manager.cursor_status = image.clone();
+        self.input_manager.cursor_manager.set_cursor_image(image);
     }
 }
 

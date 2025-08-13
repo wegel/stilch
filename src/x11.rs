@@ -420,7 +420,20 @@ pub fn run_x11() -> Result<(), Box<dyn std::error::Error>> {
 
             let mut elements: Vec<CustomRenderElements<GlesRenderer>> = Vec::new();
 
-            pointer_element.set_status(cursor_status_clone);
+            pointer_element.set_status(cursor_status_clone.clone());
+
+            // Set cursor buffer from CursorManager for named cursors
+            if matches!(cursor_status_clone, CursorImageStatus::Named(_)) {
+                let scale = output.current_scale().fractional_scale().ceil() as u32;
+                let time = state.clock.now().into();
+                if let Some(buffer) = state
+                    .input_manager
+                    .cursor_manager
+                    .get_current_cursor_buffer(scale, time)
+                {
+                    pointer_element.set_buffer(buffer);
+                }
+            }
             elements.extend(
                 pointer_element.render_elements(
                     &mut backend_data.renderer,
