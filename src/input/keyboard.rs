@@ -40,7 +40,6 @@ impl<BackendData: Backend> StilchState<BackendData> {
         debug!(?keycode, ?state, "key");
         let serial = SCOUNTER.next_serial();
         let time = Event::time_msec(&evt);
-        let mut suppressed_keys = self.input_manager.suppressed_keys.clone();
         let keyboard = self
             .seat()
             .get_keyboard()
@@ -123,8 +122,10 @@ impl<BackendData: Backend> StilchState<BackendData> {
                             FilterResult::Intercept(action) => {
                                 // Suppress the raw keysym if available, otherwise the modified one
                                 let keysym_to_suppress = raw_keysym.unwrap_or(modified_keysym);
-                                suppressed_keys.push(keysym_to_suppress);
-                                stilch.input_manager.suppressed_keys = suppressed_keys;
+                                stilch
+                                    .input_manager
+                                    .suppressed_keys
+                                    .push(keysym_to_suppress);
                                 // Return the action to be handled after this closure
                                 return FilterResult::Intercept(action);
                             }
@@ -140,10 +141,15 @@ impl<BackendData: Backend> StilchState<BackendData> {
                 } else {
                     // Key release - check if it was suppressed
                     let keysym_to_check = raw_keysym.unwrap_or(modified_keysym);
-                    let suppressed = suppressed_keys.contains(&keysym_to_check);
+                    let suppressed = stilch
+                        .input_manager
+                        .suppressed_keys
+                        .contains(&keysym_to_check);
                     if suppressed {
-                        suppressed_keys.retain(|k| *k != keysym_to_check);
-                        stilch.input_manager.suppressed_keys = suppressed_keys;
+                        stilch
+                            .input_manager
+                            .suppressed_keys
+                            .retain(|k| *k != keysym_to_check);
                         return FilterResult::Intercept(KeyAction::None);
                     } else {
                         return FilterResult::Forward;
