@@ -470,6 +470,9 @@ pub fn run_winit() -> Result<(), Box<dyn std::error::Error>> {
                     };
                 let cursor_pos = state.pointer().current_location();
 
+                // Get mutable reference to cache before other mutable borrows
+                let text_cache = &mut state.tab_text_cache;
+
                 // Now take the mutable borrow
                 let backend = &mut state.backend_data.backend;
 
@@ -553,6 +556,7 @@ pub fn run_winit() -> Result<(), Box<dyn std::error::Error>> {
                         age,
                         show_window_preview,
                         &tab_bar_data,
+                        text_cache,
                     )
                     .map_err(|err| match err {
                         OutputDamageTrackerError::Rendering(err) => err.into(),

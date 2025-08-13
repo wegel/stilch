@@ -8,7 +8,7 @@ use smithay::{
 use std::collections::HashMap;
 
 /// Cache key for rendered tab text
-#[derive(Hash, Eq, PartialEq, Clone)]
+#[derive(Hash, Eq, PartialEq, Clone, Debug)]
 struct TabTextKey {
     title: String,
     width: i32,
@@ -19,6 +19,7 @@ struct TabTextKey {
 
 /// Cache for rendered tab textures
 /// Now compositor-scoped instead of global for better resource management
+#[derive(Debug)]
 pub struct TabTextCache {
     cache: HashMap<TabTextKey, MemoryRenderBuffer>,
 }
