@@ -56,7 +56,6 @@ use smithay::{
 };
 
 #[cfg(feature = "xwayland")]
-use crate::cursor::Cursor;
 use crate::{
     command::CommandExecutor,
     config::Config,
@@ -71,7 +70,6 @@ use super::ProtocolState;
 #[cfg(feature = "xwayland")]
 use smithay::{
     delegate_xwayland_keyboard_grab, delegate_xwayland_shell,
-    utils::Size,
     wayland::xwayland_keyboard_grab::{XWaylandKeyboardGrabHandler, XWaylandKeyboardGrabState},
     xwayland::{X11Wm, XWayland, XWaylandEvent},
 };
@@ -517,26 +515,33 @@ impl<BackendData: Backend + 'static> StilchState<BackendData> {
                         .unwrap_or(1.);
                     data.client_compositor_state(&client)
                         .set_client_scale(xwayland_scale);
-                    let mut wm =
-                        match X11Wm::start_wm(data.handle.clone(), x11_socket, client.clone()) {
-                            Ok(wm) => wm,
-                            Err(e) => {
-                                error!("Failed to attach X11 Window Manager: {:?}", e);
-                                return;
-                            }
-                        };
+                    let mut wm = match X11Wm::start_wm(data.handle.clone(), x11_socket, client.clone())
+                    {
+                        Ok(wm) => wm,
+                        Err(e) => {
+                            error!("Failed to attach X11 Window Manager: {:?}", e);
+                            return;
+                        }
+                    };
 
-                    let cursor = Cursor::load();
-                    let image = cursor.get_image(1, Duration::ZERO);
-                    wm.set_cursor(
-                        &image.pixels_rgba,
-                        Size::from((image.width as u16, image.height as u16)),
-                        Point::from((image.xhot as u16, image.yhot as u16)),
-                    )
-                    .unwrap_or_else(|e| {
-                        error!("Failed to set xwayland default cursor: {:?}", e);
-                        // Non-critical error, continue without cursor
-                    });
+                    // Set default cursor for xwayland
+                    if let Some((pixels, width, height, xhot, yhot)) = data
+                        .input_manager
+                        .cursor_manager
+                        .get_current_cursor_for_xwayland(1, Duration::ZERO)
+                    {
+                        wm.set_cursor(
+                            &pixels,
+                            smithay::utils::Size::from((width, height)),
+                            Point::from((xhot, yhot)),
+                        )
+                        .unwrap_or_else(|e| {
+                            error!("Failed to set xwayland default cursor: {:?}", e);
+                            // Non-critical error, continue without cursor
+                        });
+                    } else {
+                        debug!("No cursor available for xwayland, using xwayland default");
+                    }
                     data.xwm = Some(wm);
                     data.xdisplay = Some(display_number);
                 }

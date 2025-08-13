@@ -37,6 +37,7 @@ pub mod command;
 pub mod config;
 #[cfg(any(feature = "udev", feature = "xwayland"))]
 pub mod cursor;
+pub mod cursor_manager;
 pub mod drawing;
 pub mod error;
 pub mod event;

@@ -441,6 +441,19 @@ pub fn run_winit() -> Result<(), Box<dyn std::error::Error>> {
 
                 pointer_element.set_status(state.cursor_status().clone());
 
+                // Set cursor buffer from CursorManager for named cursors
+                if matches!(state.cursor_status(), CursorImageStatus::Named(_)) {
+                    let scale = output.current_scale().fractional_scale().ceil() as u32;
+                    let time = state.clock.now().into();
+                    if let Some(buffer) = state
+                        .input_manager
+                        .cursor_manager
+                        .get_current_cursor_buffer(scale, time)
+                    {
+                        pointer_element.set_buffer(buffer);
+                    }
+                }
+
                 #[cfg(feature = "debug")]
                 let fps = state.backend_data.fps.avg().round() as u32;
                 #[cfg(feature = "debug")]

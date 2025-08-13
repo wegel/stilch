@@ -141,11 +141,9 @@ pub struct UdevData {
     primary_gpu: DrmNode,
     gpus: GpuManager<GbmGlesBackend<GlesRenderer, DrmDeviceFd>>,
     backends: HashMap<DrmNode, BackendData>,
-    pointer_images: Vec<(xcursor::parser::Image, MemoryRenderBuffer)>,
     pointer_element: PointerElement,
     #[cfg(feature = "debug")]
     fps_texture: Option<MultiTexture>,
-    pointer_image: crate::cursor::Cursor,
     debug_flags: DebugFlags,
     keyboards: Vec<smithay::reexports::input::Device>,
     outputs_needing_render: HashMap<(DrmNode, crtc::Handle), ()>,
@@ -302,8 +300,6 @@ pub fn run_udev(enable_test_ipc: bool) -> Result<(), Box<dyn std::error::Error>>
         primary_gpu,
         gpus,
         backends: HashMap::new(),
-        pointer_image: crate::cursor::Cursor::load(),
-        pointer_images: Vec::new(),
         pointer_element: PointerElement::default(),
         #[cfg(feature = "debug")]
         fps_texture: None,
@@ -1925,11 +1921,39 @@ impl StilchState<UdevData> {
         // Collect tab bar data before mutable borrows
         let tab_bar_data = crate::render::collect_tab_bar_data(self, &output);
 
-        // TODO get scale from the rendersurface when supporting HiDPI
-        let frame = self
-            .backend_data
-            .pointer_image
-            .get_image(1 /*scale*/, self.clock.now().into());
+        // Get scale from the output
+        let fractional_scale = output.current_scale().fractional_scale();
+        // For cursor loading, we need to be careful about what sizes are actually available
+        // Most cursor themes have sizes like 16, 24, 32, 48, etc.
+        // When using fractional scaling like 1.5, we were asking for 48 (24*2) but getting 16
+        // It's better to use scale 1 (24px) for 1.5x than to get a tiny 16px cursor
+        let scale = if fractional_scale <= 1.25 {
+            1  // 24px cursor for scales up to 1.25
+        } else if fractional_scale <= 1.75 {
+            // For 1.5x scaling, stay with scale 1 (24px cursor)
+            // This is better than trying scale 2 which would request 48px
+            // and potentially get a 16px cursor if 48px isn't available
+            1
+        } else if fractional_scale <= 2.25 {
+            2  // 48px cursor for scales around 2
+        } else if fractional_scale <= 3.0 {
+            2  // Still use 48px up to 3x to avoid huge cursors
+        } else {
+            3  // 72px for very high scales
+        };
+        let time = self.clock.now().into();
+
+        // Get cursor buffer and hotspot from CursorManager
+        let cursor_buffer = self
+            .input_manager
+            .cursor_manager
+            .get_current_cursor_buffer(scale, time);
+
+        let cursor_hotspot = self
+            .input_manager
+            .cursor_manager
+            .get_current_cursor_hotspot(scale, time)
+            .unwrap_or((0, 0));
 
         let device = if let Some(device) = self.backend_data.backends.get_mut(&node) {
             device
@@ -1960,28 +1984,17 @@ impl StilchState<UdevData> {
             }
         };
 
-        let pointer_images = &mut self.backend_data.pointer_images;
-        let pointer_image = pointer_images
-            .iter()
-            .find_map(|(image, texture)| {
-                if image == &frame {
-                    Some(texture.clone())
-                } else {
-                    None
-                }
-            })
-            .unwrap_or_else(|| {
-                let buffer = MemoryRenderBuffer::from_slice(
-                    &frame.pixels_rgba,
-                    Fourcc::Argb8888,
-                    (frame.width as i32, frame.height as i32),
-                    1,
-                    Transform::Normal,
-                    None,
-                );
-                pointer_images.push((frame, buffer.clone()));
-                buffer
-            });
+        let pointer_image = cursor_buffer.unwrap_or_else(|| {
+            // Fallback to empty cursor if none available
+            MemoryRenderBuffer::from_slice(
+                &[0u8; 4], // 1x1 transparent pixel
+                Fourcc::Argb8888,
+                (1, 1),
+                1,
+                Transform::Normal,
+                None,
+            )
+        });
 
         // Get space reference
         let space = &self.window_manager.space;
@@ -1999,6 +2012,7 @@ impl StilchState<UdevData> {
             pointer_element,
             &dnd_icon,
             cursor_status,
+            cursor_hotspot,
             show_window_preview,
             &tab_bar_data,
             text_cache,
@@ -2072,6 +2086,7 @@ fn render_surface<'a>(
     pointer_element: &mut PointerElement,
     dnd_icon: &Option<DndIcon>,
     cursor_status: &mut CursorImageStatus,
+    named_cursor_hotspot: (i32, i32),
     show_window_preview: bool,
     tab_bar_data: &[crate::render::TabBarData],
     text_cache: &mut crate::tab_bar::TabTextCache,
@@ -2096,17 +2111,17 @@ fn render_surface<'a>(
     // custom_elements.extend(tab_bar_elements);
 
     if output_geometry.to_f64().contains(pointer_location) {
-        let cursor_hotspot = if let CursorImageStatus::Surface(ref surface) = cursor_status {
-            compositor::with_states(surface, |states| {
+        let cursor_hotspot = match cursor_status {
+            CursorImageStatus::Surface(ref surface) => compositor::with_states(surface, |states| {
                 states
                     .data_map
                     .get::<Mutex<CursorImageAttributes>>()
                     .and_then(|mutex| mutex.lock().ok())
                     .map(|attrs| attrs.hotspot)
                     .unwrap_or_else(|| (0, 0).into())
-            })
-        } else {
-            (0, 0).into()
+            }),
+            CursorImageStatus::Named(_) => named_cursor_hotspot.into(),
+            CursorImageStatus::Hidden => (0, 0).into(),
         };
         let cursor_pos = pointer_location - output_geometry.loc.to_f64();
 

@@ -4,6 +4,7 @@ use smithay::input::{
     Seat,
 };
 
+use crate::cursor_manager::CursorManager;
 use crate::state::{Backend, DndIcon, StilchState};
 
 /// Centralized input management
@@ -13,6 +14,8 @@ pub struct InputManager<BackendData: Backend + 'static> {
     pub suppressed_keys: Vec<Keysym>,
     /// Current cursor image status
     pub cursor_status: CursorImageStatus,
+    /// Cursor manager for loading and caching cursor images
+    pub cursor_manager: CursorManager,
     /// Wayland seat for input
     pub seat: Seat<StilchState<BackendData>>,
     /// Pointer handle
@@ -30,6 +33,7 @@ impl<BackendData: Backend + 'static> InputManager<BackendData> {
         Self {
             suppressed_keys: Vec::new(),
             cursor_status: CursorImageStatus::default_named(),
+            cursor_manager: CursorManager::new(),
             seat,
             pointer,
             dnd_icon: None,
