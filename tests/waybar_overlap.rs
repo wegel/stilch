@@ -63,9 +63,7 @@ fn test_waybar_overlap_bug() -> Result<(), Box<dyn std::error::Error>> {
         let width = window["width"].as_i64().unwrap_or(0);
         let height = window["height"].as_i64().unwrap_or(0);
 
-        println!(
-            "Window {id}: x={x}, y={y}, width={width}, height={height}"
-        );
+        println!("Window {id}: x={x}, y={y}, width={width}, height={height}");
 
         if y < 30 {
             overlapping_windows.push((id, y));

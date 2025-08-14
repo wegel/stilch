@@ -54,16 +54,17 @@ Perfect for:
 
 [📖 Full Fullscreen Modes Documentation](docs/FULLSCREEN_MODES.md)
 
-### 🖱️ Smooth Cursor Transitions
+### 🖱️ Physical Cursor Continuity
 
 **Problem**: Moving between monitors with different DPIs causes cursor "jumps" - the cursor position suddenly shifts due to pixel density differences and not accounting for the physical position of one screen vs the other.
 
-**Solution**: stilch provides smooth cursor transitions between monitors:
+**Solution**: stilch provides physical cursor continuity across monitors:
 
-- No position jumps at monitor boundaries
-- Cursor position preserved relative to visual space
-- Smooth movement between different DPI displays
-- Natural feel across multi-monitor setups
+- **Physical position tracking** - Cursor position tracked in real-world millimeters
+- **DPI-aware transitions** - Seamless movement between different pixel densities
+- **Gap jumping** - Intelligent cursor warping across physically separated displays
+- **Boundary-based detection** - Smart detection of which display edge was crossed
+- Natural feel across multi-monitor setups with different scales and orientations
 
 ```
 Traditional:                 stilch:
@@ -71,6 +72,10 @@ Traditional:                 stilch:
 Cursor ─────┐               Cursor ──────────
             ↓ (jumps!)                (smooth)
          ───┘                         ───────
+
+Gap Jumping:
+[Display1] ──→ (gap) ──→ [Display2]
+         cursor jumps the physical gap
 ```
 
 [📖 Full Cursor Transitions Documentation](docs/CURSOR_TRANSITIONS.md)
@@ -397,8 +402,8 @@ By contributing to stilch, you agree that your contributions will be licensed un
 - ✅ **Core tiling functionality** - Complete
 - ✅ **Virtual outputs** - Complete
 - ✅ **Multi-fullscreen modes** - Complete
+- ✅ **Physical cursor continuity** - Complete with gap jumping
 - ✅ **i3/sway compatibility** - ~40% complete
-- 🚧 **Cursor transitions** - In progress
 - 🚧 **IPC interface** - Basic implementation
 
 ## 📄 License

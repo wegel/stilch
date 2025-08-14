@@ -48,9 +48,7 @@ fn test_container_fullscreen_from_split() -> Result<(), Box<dyn std::error::Erro
     let height_before = w2_before.get("height").and_then(|v| v.as_i64()).unwrap();
 
     println!("Before fullscreen:");
-    println!(
-        "  Window 2: width={width_before}, height={height_before}"
-    );
+    println!("  Window 2: width={width_before}, height={height_before}");
 
     // Window 2 should be approximately half the screen width (1920) in split mode
     // Allow some tolerance for gaps/borders
@@ -121,9 +119,7 @@ fn test_container_fullscreen_from_split() -> Result<(), Box<dyn std::error::Erro
     let width_off = w2_off.get("width").and_then(|v| v.as_i64()).unwrap();
 
     println!("After toggling off:");
-    println!(
-        "  Window 2: width={width_off}, fullscreen={fullscreen_off}"
-    );
+    println!("  Window 2: width={width_off}, fullscreen={fullscreen_off}");
 
     assert!(!fullscreen_off, "Window should not be fullscreen");
     // Should return to split size

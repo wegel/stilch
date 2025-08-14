@@ -37,9 +37,7 @@ fn test_debug_window_close() -> Result<(), Box<dyn std::error::Error>> {
     println!("Window created with ID: {window_id}");
 
     // Try to close it via IPC
-    println!(
-        "\nTrying to close window {window_id} via DestroyWindow command..."
-    );
+    println!("\nTrying to close window {window_id} via DestroyWindow command...");
     let response = client.send_command(&serde_json::json!({
         "type": "DestroyWindow",
         "id": window_id

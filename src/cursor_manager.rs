@@ -42,26 +42,26 @@ impl CursorData {
         if !self.is_animated() {
             return 0;
         }
-        
+
         let nearest = nearest_images(size, &self.images);
         if nearest.is_empty() {
             return 0;
         }
-        
+
         let total_delay: u32 = nearest.iter().map(|img| img.delay).sum();
         if total_delay == 0 {
             return 0;
         }
-        
+
         let mut millis = (time.as_millis() as u32) % total_delay;
-        
+
         for (index, img) in nearest.iter().enumerate() {
             if millis < img.delay {
                 return index;
             }
             millis -= img.delay;
         }
-        
+
         0
     }
 
@@ -128,7 +128,8 @@ impl CursorManager {
     /// Set the current cursor image status
     pub fn set_cursor_image(&mut self, status: CursorImageStatus) {
         // Clear buffer cache when cursor changes
-        if !matches!(&self.current_status, current if std::mem::discriminant(current) == std::mem::discriminant(&status)) {
+        if !matches!(&self.current_status, current if std::mem::discriminant(current) == std::mem::discriminant(&status))
+        {
             self.buffer_cache.clear();
         }
         self.current_status = status;
@@ -156,23 +157,23 @@ impl CursorManager {
             CursorImageStatus::Surface(_) => return None, // Surface cursors are handled elsewhere
             CursorImageStatus::Named(icon) => *icon,
         };
-        
+
         let size = self.size * scale;
         let cursor = self.get_cursor(icon, scale)?;
-        
+
         // Calculate frame index for animated cursors
         let frame_index = if cursor.is_animated() {
             cursor.get_frame_index(size, time)
         } else {
             0
         };
-        
+
         // Check cache first
         let cache_key = (icon, scale, frame_index);
         if let Some(buffer) = self.buffer_cache.get(&cache_key) {
             return Some(buffer.clone());
         }
-        
+
         // Create new buffer and cache it
         let buffer = cursor.to_memory_buffer(size, scale, time);
         self.buffer_cache.insert(cache_key, buffer.clone());

@@ -156,12 +156,8 @@ fn test_multiple_windows_non_overlapping() -> Result<(), Box<dyn std::error::Err
     let w2_width = w2["width"].as_i64().unwrap();
     let w2_height = w2["height"].as_i64().unwrap();
 
-    println!(
-        "Window 1: pos=({w1_x}, {w1_y}), size={w1_width}x{w1_height}"
-    );
-    println!(
-        "Window 2: pos=({w2_x}, {w2_y}), size={w2_width}x{w2_height}"
-    );
+    println!("Window 1: pos=({w1_x}, {w1_y}), size={w1_width}x{w1_height}");
+    println!("Window 2: pos=({w2_x}, {w2_y}), size={w2_width}x{w2_height}");
 
     // Check for non-overlapping - windows should be side by side or top/bottom
     let w1_right = w1_x + w1_width;

@@ -85,12 +85,8 @@ fn test_window_split_with_125_scale() -> Result<(), Box<dyn std::error::Error>> 
     let expected_width = logical_width / 2; // 768
     let tolerance = 50; // Allow some tolerance for gaps and rounding
 
-    println!(
-        "\nExpected width per window: {expected_width} (±{tolerance})"
-    );
-    println!(
-        "Actual widths: w1={w1_split_width}, w2={w2_split_width}"
-    );
+    println!("\nExpected width per window: {expected_width} (±{tolerance})");
+    println!("Actual widths: w1={w1_split_width}, w2={w2_split_width}");
 
     // Check that windows are approximately half width
     assert!(
@@ -112,9 +108,7 @@ fn test_window_split_with_125_scale() -> Result<(), Box<dyn std::error::Error>> 
 
     // Check that windows together span the logical width
     let total_width = w1_split_width + w2_split_width;
-    println!(
-        "Total width covered: {total_width} (logical space: {logical_width})"
-    );
+    println!("Total width covered: {total_width} (logical space: {logical_width})");
     assert!(
         total_width <= logical_width,
         "Combined width {total_width} should not exceed logical width {logical_width}"
@@ -135,9 +129,7 @@ fn test_window_split_with_125_scale() -> Result<(), Box<dyn std::error::Error>> 
     // Check that the split is centered (not 2/3 to one side)
     let midpoint = logical_width / 2;
     let w2_start = w2_split_x;
-    println!(
-        "\nMidpoint check: expected around {midpoint}, w2 starts at {w2_start}"
-    );
+    println!("\nMidpoint check: expected around {midpoint}, w2 starts at {w2_start}");
     assert!(
         (w2_start - midpoint).abs() <= tolerance,
         "Second window should start near midpoint {midpoint}, but starts at {w2_start}"

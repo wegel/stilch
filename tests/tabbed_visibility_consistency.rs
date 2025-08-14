@@ -48,9 +48,7 @@ fn test_tabbed_active_tab_content_consistency() -> Result<(), Box<dyn std::error
         })
         .expect("Should find window 3");
 
-    println!(
-        "Window IDs: w1={window1_id}, w2={window2_id}, w3={window3_id}"
-    );
+    println!("Window IDs: w1={window1_id}, w2={window2_id}, w3={window3_id}");
 
     // Helper function to verify tab consistency
     let verify_tab_consistency = |client: &TestClient,

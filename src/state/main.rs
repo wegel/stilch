@@ -111,6 +111,9 @@ pub struct StilchState<BackendData: Backend + 'static> {
     // Input management
     pub input_manager: crate::input::InputManager<BackendData>,
 
+    // Physical layout management for cursor continuity
+    pub physical_layout: Option<crate::physical_layout::PhysicalLayoutManager>,
+
     // Event system
     pub event_bus: EventBus,
 
@@ -421,6 +424,7 @@ impl<BackendData: Backend + 'static> StilchState<BackendData> {
             protocols,
             workspace_manager: crate::workspace::WorkspaceManager::new(inner_gap),
             input_manager,
+            physical_layout: None, // Will be initialized when outputs are configured
             event_bus: EventBus::new(),
             command_executor: CommandExecutor::new(),
             seat_name,
@@ -515,14 +519,14 @@ impl<BackendData: Backend + 'static> StilchState<BackendData> {
                         .unwrap_or(1.);
                     data.client_compositor_state(&client)
                         .set_client_scale(xwayland_scale);
-                    let mut wm = match X11Wm::start_wm(data.handle.clone(), x11_socket, client.clone())
-                    {
-                        Ok(wm) => wm,
-                        Err(e) => {
-                            error!("Failed to attach X11 Window Manager: {:?}", e);
-                            return;
-                        }
-                    };
+                    let mut wm =
+                        match X11Wm::start_wm(data.handle.clone(), x11_socket, client.clone()) {
+                            Ok(wm) => wm,
+                            Err(e) => {
+                                error!("Failed to attach X11 Window Manager: {:?}", e);
+                                return;
+                            }
+                        };
 
                     // Set default cursor for xwayland
                     if let Some((pixels, width, height, xhot, yhot)) = data

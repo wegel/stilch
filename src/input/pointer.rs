@@ -220,10 +220,15 @@ impl StilchState<crate::udev::UdevData> {
             return;
         }
 
-        pointer_location += evt.delta();
-
-        // Clamp to screen boundaries
-        pointer_location = self.clamp_pointer_location(pointer_location);
+        // Use physical layout manager if available for DPI-aware cursor movement
+        pointer_location = if let Some(ref mut physical_layout) = self.physical_layout {
+            // Physical layout manager handles gaps and boundaries itself
+            physical_layout.handle_relative_motion(pointer_location, evt.delta())
+        } else {
+            // Only clamp when not using physical layout
+            let new_location = pointer_location + evt.delta();
+            self.clamp_pointer_location(new_location)
+        };
 
         let under = self.surface_under(pointer_location);
 
@@ -278,6 +283,9 @@ impl StilchState<crate::udev::UdevData> {
     ) {
         let serial = SCOUNTER.next_serial();
 
+        // For absolute motion, we need to determine which output it's on
+        // This is typically for touch/tablet input which is output-specific
+
         let max_x = self.space().outputs().fold(0, |acc, o| {
             acc + self
                 .space()
@@ -306,6 +314,11 @@ impl StilchState<crate::udev::UdevData> {
 
         // Clamp to screen boundaries
         let location = self.clamp_pointer_location(location);
+
+        // Update physical layout manager's position if available
+        if let Some(ref mut physical_layout) = self.physical_layout {
+            physical_layout.set_logical_position(location);
+        }
 
         let pointer = self.pointer().clone();
         let under = self.surface_under(location);

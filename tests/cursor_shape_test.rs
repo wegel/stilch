@@ -126,7 +126,7 @@ fn test_animated_cursor_detection() {
         found_static || found_animated,
         "Should find at least one cursor in the theme"
     );
-    
+
     // Log the results
     if !found_static && found_animated {
         println!("Note: All cursors in current theme are animated");

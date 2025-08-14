@@ -1,6 +1,6 @@
-use stilch::workspace::layout::{ContainerLayout, LayoutTree, SplitDirection};
-use stilch::window::WindowId;
 use smithay::utils::Rectangle;
+use stilch::window::WindowId;
+use stilch::workspace::layout::{ContainerLayout, LayoutTree, SplitDirection};
 
 #[test]
 fn test_move_tab_left_in_tabbed_container() {

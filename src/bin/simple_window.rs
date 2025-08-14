@@ -83,7 +83,7 @@ fn main() {
 
     loop {
         match event_queue.blocking_dispatch(&mut simple_window) {
-            Ok(_) => {},
+            Ok(_) => {}
             Err(e) => {
                 // Check if it's a broken pipe error (compositor gone)
                 let err_str = format!("{e:?}");

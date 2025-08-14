@@ -111,12 +111,8 @@ fn test_focused_window_becomes_active_tab() -> Result<(), Box<dyn std::error::Er
     let window2_content_visible = snapshot.contains(&format!(" {window2_id} "));
 
     println!("\n=== RESULTS ===");
-    println!(
-        "Window 1 marked as active tab [F]: {found_window1_active}"
-    );
-    println!(
-        "Window 2 marked as active tab [F]: {found_window2_active}"
-    );
+    println!("Window 1 marked as active tab [F]: {found_window1_active}");
+    println!("Window 2 marked as active tab [F]: {found_window2_active}");
     println!("Window 1 content visible: {window1_content_visible}");
     println!("Window 2 content visible: {window2_content_visible}");
 

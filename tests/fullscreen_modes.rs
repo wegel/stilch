@@ -82,9 +82,7 @@ fn test_container_fullscreen() -> Result<(), Box<dyn std::error::Error>> {
         .unwrap_or(false);
 
     println!("Container fullscreen test:");
-    println!(
-        "  Window 3 before: width={width_before}, height={height_before}"
-    );
+    println!("  Window 3 before: width={width_before}, height={height_before}");
     println!(
         "  Window 3 after:  width={width_after}, height={height_after}, fullscreen={fullscreen_after}"
     );
@@ -122,7 +120,11 @@ fn test_virtual_output_fullscreen() -> Result<(), Box<dyn std::error::Error>> {
     env.cleanup()?;
 
     // Start compositor with virtual outputs config
-    env.start_compositor(&["--test", "--config", "tests/test_configs/virtual_outputs.conf"])?;
+    env.start_compositor(&[
+        "--test",
+        "--config",
+        "tests/test_configs/virtual_outputs.conf",
+    ])?;
 
     let client = TestClient::new(&env.test_socket);
 

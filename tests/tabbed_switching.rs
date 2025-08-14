@@ -50,9 +50,7 @@ fn test_initial_tab_switching() -> Result<(), Box<dyn std::error::Error>> {
         })
         .expect("Should find window 3");
 
-    println!(
-        "Window IDs: w1={window1_id}, w2={window2_id}, w3={window3_id}"
-    );
+    println!("Window IDs: w1={window1_id}, w2={window2_id}, w3={window3_id}");
 
     // Focus window 1 first
     client.focus_window(window1_id)?;
@@ -95,9 +93,7 @@ fn test_initial_tab_switching() -> Result<(), Box<dyn std::error::Error>> {
     let w2_visible = initial_snapshot.contains(&w2_str);
     let w3_visible = initial_snapshot.contains(&w3_str);
 
-    println!(
-        "Initial visibility: w1={w1_visible}, w2={w2_visible}, w3={w3_visible}"
-    );
+    println!("Initial visibility: w1={w1_visible}, w2={w2_visible}, w3={w3_visible}");
     println!("Window {window1_id} should be visible");
     assert!(
         w1_visible,

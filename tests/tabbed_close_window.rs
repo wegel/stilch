@@ -119,9 +119,7 @@ fn test_close_window_in_tabbed_container() -> Result<(), Box<dyn std::error::Err
     // Or if it was the last tab, the previous one (window 2)
     let w4_visible = snapshot_after_close.contains(&format!(" {window4_id} "));
     let w2_visible = snapshot_after_close.contains(&format!(" {window2_id} "));
-    println!(
-        "After close: w2_visible={w2_visible}, w4_visible={w4_visible}"
-    );
+    println!("After close: w2_visible={w2_visible}, w4_visible={w4_visible}");
 
     // Let's say window 4 is now visible
     let visible_after_close = if w4_visible { window4_id } else { window2_id };
@@ -143,9 +141,7 @@ fn test_close_window_in_tabbed_container() -> Result<(), Box<dyn std::error::Err
     let w1_visible_left = after_left.contains(&format!(" {window1_id} "));
     let w2_visible_left = after_left.contains(&format!(" {window2_id} "));
     let w4_visible_left = after_left.contains(&format!(" {window4_id} "));
-    println!(
-        "After left: w1={w1_visible_left}, w2={w2_visible_left}, w4={w4_visible_left}"
-    );
+    println!("After left: w1={w1_visible_left}, w2={w2_visible_left}, w4={w4_visible_left}");
 
     // Super+Right should go back to where we were (the tab after the closed one)
     println!("\n=== TEST: Super+Right to return ===");
@@ -162,9 +158,7 @@ fn test_close_window_in_tabbed_container() -> Result<(), Box<dyn std::error::Err
     let w1_visible_right = after_right.contains(&format!(" {window1_id} "));
     let w2_visible_right = after_right.contains(&format!(" {window2_id} "));
     let w4_visible_right = after_right.contains(&format!(" {window4_id} "));
-    println!(
-        "After right: w1={w1_visible_right}, w2={w2_visible_right}, w4={w4_visible_right}"
-    );
+    println!("After right: w1={w1_visible_right}, w2={w2_visible_right}, w4={w4_visible_right}");
 
     // We should return to the window that was visible after the close
     if visible_after_close == window4_id {

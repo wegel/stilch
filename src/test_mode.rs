@@ -837,26 +837,40 @@ impl TestIpcHandler {
                 }
 
                 crate::test_ipc::TestCommand::MoveMouse { x, y } => {
-                    // Move pointer to position, using the production clamping logic
+                    // Move pointer to position
                     use smithay::utils::{Logical, Point};
 
                     let target = Point::<f64, Logical>::from((x as f64, y as f64));
 
-                    // Apply the same clamping logic as production code
-                    let clamped = state.clamp_pointer_location(target);
+                    // If physical layout manager is active, let it handle the movement
+                    // Otherwise use clamping
+                    let final_position = if state.physical_layout.is_some() {
+                        info!("Physical layout manager is active, not clamping");
+                        // Don't clamp - let the physical layout manager handle boundaries
+                        target
+                    } else {
+                        info!("No physical layout manager, using clamping");
+                        // Apply the same clamping logic as production code
+                        state.clamp_pointer_location(target)
+                    };
 
                     // Set the pointer location
-                    state.pointer().set_location(clamped);
+                    state.pointer().set_location(final_position);
+
+                    // Update physical layout manager if present
+                    if let Some(ref mut physical_layout) = state.physical_layout {
+                        physical_layout.set_logical_position(final_position);
+                    }
 
                     info!(
-                        "MoveMouse: Requested ({}, {}), clamped to ({}, {})",
-                        x, y, clamped.x, clamped.y
+                        "MoveMouse: Requested ({}, {}), positioned at ({}, {})",
+                        x, y, final_position.x, final_position.y
                     );
 
                     crate::test_ipc::TestResponse::Success {
                         message: format!(
                             "Moved mouse to ({}, {})",
-                            clamped.x as i32, clamped.y as i32
+                            final_position.x as i32, final_position.y as i32
                         ),
                     }
                 }
@@ -1159,6 +1173,96 @@ pub fn run_test_mode(config: TestModeConfig) {
             let total_width = output_rect.loc.x + output_rect.size.w;
             let total_height = output_rect.loc.y + output_rect.size.h;
             ascii.update_total_size(total_width, total_height);
+        }
+    }
+
+    // Initialize physical layout if configured
+    // First collect all the physical display configurations
+    let mut physical_displays = Vec::new();
+    {
+        let outputs = state.space().outputs().cloned().collect::<Vec<_>>();
+        info!(
+            "Checking {} outputs for physical layout configuration",
+            outputs.len()
+        );
+        for output in outputs {
+            let output_name = output.name();
+            info!(
+                "Checking output '{}' for physical layout config",
+                output_name
+            );
+
+            // Check if this output has physical layout configuration
+            if let Some(output_config) = state.config.outputs.iter().find(|o| o.name == output_name)
+            {
+                info!("Found config for output '{}'", output_name);
+                if let (Some(physical_size_mm), Some(physical_position_mm)) = (
+                    output_config.physical_size_mm,
+                    output_config.physical_position_mm,
+                ) {
+                    // Get output properties
+                    let current_mode =
+                        output
+                            .current_mode()
+                            .unwrap_or_else(|| smithay::output::Mode {
+                                size: (1920, 1080).into(),
+                                refresh: 60_000,
+                            });
+                    let scale = output.current_scale().fractional_scale();
+                    let transform = output.current_transform();
+                    let position = state
+                        .space()
+                        .output_geometry(&output)
+                        .map(|g| g.loc)
+                        .unwrap_or_else(|| smithay::utils::Point::from((0, 0)));
+                    let logical_size = current_mode.size.to_f64().to_logical(scale).to_i32_round();
+
+                    // Create PhysicalDisplay entry for this output
+                    let physical_display = crate::physical_layout::PhysicalDisplay {
+                        name: output_name.clone(),
+                        pixel_size: current_mode.size.into(),
+                        physical_size_mm: smithay::utils::Size::from((
+                            physical_size_mm.0,
+                            physical_size_mm.1,
+                        )),
+                        physical_position_mm: smithay::utils::Point::from((
+                            physical_position_mm.0,
+                            physical_position_mm.1,
+                        )),
+                        scale,
+                        transform,
+                        logical_position: position,
+                        logical_size,
+                    };
+
+                    info!(
+                        "Adding test output '{}' to physical layout: {}x{}mm at ({}, {})mm, scale {}",
+                        output_name,
+                        physical_size_mm.0, physical_size_mm.1,
+                        physical_position_mm.0, physical_position_mm.1,
+                        scale
+                    );
+
+                    physical_displays.push(physical_display);
+                }
+            } else {
+                info!("No config found for output '{}'", output_name);
+            }
+        }
+    }
+
+    // Now add all the displays to the physical layout manager
+    if !physical_displays.is_empty() {
+        // Initialize physical layout manager if not already done
+        if state.physical_layout.is_none() {
+            state.physical_layout = Some(crate::physical_layout::PhysicalLayoutManager::new());
+            info!("Initialized PhysicalLayoutManager for test mode");
+        }
+
+        if let Some(ref mut physical_layout) = state.physical_layout {
+            for display in physical_displays {
+                physical_layout.add_display(display);
+            }
         }
     }
 

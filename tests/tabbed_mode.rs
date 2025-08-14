@@ -53,12 +53,8 @@ fn test_tabbed_container_basic() -> Result<(), Box<dyn std::error::Error>> {
     let w2_width = w2_data.get("width").and_then(|v| v.as_i64()).unwrap_or(0);
     let w2_height = w2_data.get("height").and_then(|v| v.as_i64()).unwrap_or(0);
 
-    println!(
-        "Window 1 position: x={w1_x}, y={w1_y}, w={w1_width}, h={w1_height}"
-    );
-    println!(
-        "Window 2 position: x={w2_x}, y={w2_y}, w={w2_width}, h={w2_height}"
-    );
+    println!("Window 1 position: x={w1_x}, y={w1_y}, w={w1_width}, h={w1_height}");
+    println!("Window 2 position: x={w2_x}, y={w2_y}, w={w2_width}, h={w2_height}");
 
     // Initially windows should be tiled (side by side)
     // At least one window should not start at x=0
