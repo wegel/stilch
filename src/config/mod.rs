@@ -143,6 +143,10 @@ pub struct OutputConfig {
     pub transform: Option<String>,
     pub background: Option<BackgroundConfig>,
     pub split: Option<(crate::virtual_output::SplitType, usize)>,
+    /// Physical size in millimeters (width, height)
+    pub physical_size_mm: Option<(f64, f64)>,
+    /// Physical position in millimeters (x, y) from top-left origin
+    pub physical_position_mm: Option<(f64, f64)>,
 }
 
 #[derive(Debug, Clone)]

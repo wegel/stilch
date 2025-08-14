@@ -393,6 +393,8 @@ fn parse_output(config: &mut Config, parts: &[&str]) -> Result<(), Box<dyn std::
         transform: None,
         background: None,
         split: None,
+        physical_size_mm: None,
+        physical_position_mm: None,
     };
 
     let mut i = 1; // Start at 1 since parts[0] is the output name
@@ -455,6 +457,70 @@ fn parse_output(config: &mut Config, parts: &[&str]) -> Result<(), Box<dyn std::
                     _ => return Err(format!("Invalid transform value: {}. Valid values are: normal, 90, 180, 270, flipped, flipped-90, flipped-180, flipped-270", parts[i + 1]).into()),
                 };
                 output_config.transform = Some(transform.to_string());
+                i += 2;
+            }
+            "physical_size" if i + 1 < parts.len() => {
+                // Parse physical size: WIDTHxHEIGHT[mm|in]
+                // Examples: 285x105mm, 11.25x4.125in, 285x105 (default mm)
+                let size_str = parts[i + 1];
+                let (size_part, unit) = if size_str.ends_with("mm") {
+                    (&size_str[..size_str.len()-2], "mm")
+                } else if size_str.ends_with("in") {
+                    (&size_str[..size_str.len()-2], "in")
+                } else {
+                    (size_str, "mm") // default to mm
+                };
+                
+                let size_parts: Vec<&str> = size_part.split('x').collect();
+                if size_parts.len() != 2 {
+                    return Err(format!("Invalid physical_size format: {}. Expected WIDTHxHEIGHT[mm|in]", size_str).into());
+                }
+                
+                let width: f64 = size_parts[0].parse()
+                    .map_err(|_| format!("Invalid width in physical_size: {}", size_parts[0]))?;
+                let height: f64 = size_parts[1].parse()
+                    .map_err(|_| format!("Invalid height in physical_size: {}", size_parts[1]))?;
+                
+                // Convert to mm if specified in inches
+                let (width_mm, height_mm) = if unit == "in" {
+                    (width * 25.4, height * 25.4)
+                } else {
+                    (width, height)
+                };
+                
+                output_config.physical_size_mm = Some((width_mm, height_mm));
+                i += 2;
+            }
+            "physical_position" if i + 1 < parts.len() => {
+                // Parse physical position: X,Y[mm|in]
+                // Examples: 0,480mm, 0.5,21in, 310,480 (default mm)
+                let pos_str = parts[i + 1];
+                let (pos_part, unit) = if pos_str.ends_with("mm") {
+                    (&pos_str[..pos_str.len()-2], "mm")
+                } else if pos_str.ends_with("in") {
+                    (&pos_str[..pos_str.len()-2], "in")
+                } else {
+                    (pos_str, "mm") // default to mm
+                };
+                
+                let pos_parts: Vec<&str> = pos_part.split(',').collect();
+                if pos_parts.len() != 2 {
+                    return Err(format!("Invalid physical_position format: {}. Expected X,Y[mm|in]", pos_str).into());
+                }
+                
+                let x: f64 = pos_parts[0].parse()
+                    .map_err(|_| format!("Invalid x in physical_position: {}", pos_parts[0]))?;
+                let y: f64 = pos_parts[1].parse()
+                    .map_err(|_| format!("Invalid y in physical_position: {}", pos_parts[1]))?;
+                
+                // Convert to mm if specified in inches
+                let (x_mm, y_mm) = if unit == "in" {
+                    (x * 25.4, y * 25.4)
+                } else {
+                    (x, y)
+                };
+                
+                output_config.physical_position_mm = Some((x_mm, y_mm));
                 i += 2;
             }
             "split" if i + 2 < parts.len() => {

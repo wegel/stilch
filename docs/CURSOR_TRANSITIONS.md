@@ -1,8 +1,8 @@
-# Intelligent Cursor Transitions - Detailed Documentation
+# Physical Cursor Continuity - Detailed Documentation
 
 ## Overview
 
-stilch's Intelligent Cursor Transition system solves the jarring "cursor jump" problem that occurs when moving between monitors with different DPIs, sizes, or resolutions. Instead of treating each monitor as an independent coordinate system, stilch creates a unified visual space where cursor movement feels natural and continuous.
+stilch's Physical Cursor Continuity system solves the jarring "cursor jump" problem that occurs when moving between monitors with different DPIs, sizes, or resolutions. By tracking cursor position in physical millimeters and implementing intelligent gap jumping, stilch creates a unified physical space where cursor movement feels natural and continuous across all displays.
 
 ## The Problem
 
@@ -40,9 +40,13 @@ But visually jumps because pixel density doubled!
 
 ## stilch's Solution
 
-### Unified Visual Space
+### Physical Layout Manager
 
-stilch treats all monitors as part of one continuous canvas measured in visual units (millimeters), not pixels:
+stilch implements a PhysicalLayoutManager that tracks display positions and sizes in real-world millimeters, enabling accurate cursor mapping across displays with different scales and DPIs.
+
+### Unified Physical Space
+
+stilch treats all monitors as part of one continuous canvas measured in physical units (millimeters), not pixels:
 
 ```
 Visual Space Mapping:
@@ -63,12 +67,30 @@ Cursor position tracked in mm, converted to pixels per display
 
 ### Key Principles
 
-1. **Visual Continuity**: Cursor maintains visual position across boundaries
-2. **Velocity Preservation**: Movement speed stays consistent
+1. **Physical Continuity**: Cursor maintains physical position across boundaries
+2. **Velocity Preservation**: Movement speed stays consistent  
 3. **Predictable Paths**: Straight lines remain straight across monitors
 4. **Size Consistency**: Cursor appears same physical size on all displays
+5. **Gap Jumping**: Intelligent warping across physically separated displays
+6. **Boundary-Based Detection**: Direction determined by which display edge was crossed
 
 ## Implementation
+
+### Gap Jumping Algorithm
+
+stilch implements intelligent gap jumping based on boundary crossing detection:
+
+1. **Boundary Detection**: When cursor moves beyond a display's boundary, the system detects which edge was crossed (left, right, top, bottom)
+2. **Direction-Based Search**: Only displays in the direction of the crossed boundary are considered for gap jumping
+3. **Nearest Display Selection**: Among valid targets, the nearest display that overlaps with the cursor's trajectory is selected
+4. **Position Preservation**: The cursor maintains its relative position along the non-crossing axis
+
+Example:
+```
+Display1 right edge crossed → Look for displays to the right
+Display2 found 100mm to the right → Jump cursor to Display2's left edge
+Maintain Y position relative to display height
+```
 
 ### Coordinate Systems
 
@@ -142,70 +164,16 @@ pub fn handle_cursor_motion(&mut self, delta: Point<f64>) {
 
 ## Configuration
 
-### Basic Settings
+### Physical Layout Configuration
 
-```toml
-[cursor]
-# Enable intelligent transitions
-intelligent_transitions = true
-
-# Cursor acceleration profile
-acceleration = "adaptive"  # none, linear, adaptive
-
-# Edge resistance (milliseconds to "stick" at edges)
-edge_resistance = 50
-
-# Cursor size scaling
-unified_size = true  # Keep visual size consistent
+```bash
+# Configure physical size and position in stilch config
+output HDMI-A-1 scale 1.6 transform 270 physical_size 521x470mm physical_position 37,0mm
+output DP-1 scale 1.0 position 0,1800 physical_size 291x105mm physical_position -9.5,480mm
+output DP-2 scale 1.0 position 1920,1800 physical_size 291x105mm physical_position 313.5,480mm
 ```
 
-### Per-Output Configuration
-
-```toml
-[[outputs]]
-name = "DP-1"
-# Override detected DPI if needed
-dpi = 96
-
-# Cursor speed multiplier for this output
-cursor_speed = 1.0
-
-# Alignment with other outputs
-alignment = "top"  # top, middle, bottom
-
-[[outputs]]
-name = "HDMI-1"
-dpi = 192
-cursor_speed = 1.0
-alignment = "middle"
-```
-
-### Advanced Behavior
-
-```toml
-[cursor.transitions]
-# Smooth transition time when crossing boundaries (ms)
-smoothing = 16
-
-# Prediction for smooth motion
-prediction = true
-
-# Snap to edges of windows when moving slowly
-edge_snapping = true
-snap_distance = 10  # pixels
-
-# Different behavior for different input devices
-[[cursor.devices]]
-name = "Gaming Mouse"
-acceleration = "none"
-speed = 1.5
-
-[[cursor.devices]]
-name = "Trackpad"
-acceleration = "adaptive"
-speed = 1.0
-natural_scrolling = true
-```
+The physical layout configuration is done through the output commands in the stilch config file.
 
 ## Visual Alignment
 
@@ -227,18 +195,12 @@ Cursor crosses at matching visual height
 
 ### Manual Alignment
 
-Override automatic alignment:
+Override automatic alignment using the stilch config:
 
-```toml
-[[outputs]]
-name = "DP-1"
-position = { x = 0, y = 0 }
-physical_size = { width = 597, height = 336 }  # mm
-
-[[outputs]]
-name = "HDMI-1"
-position = { x = 597, y = 50 }  # 50mm vertical offset
-physical_size = { width = 531, height = 298 }
+```bash
+# Position displays with specific physical positions
+output DP-1 position 0,0 physical_size 597x336mm physical_position 0,0mm
+output HDMI-1 position 2560,0 physical_size 531x298mm physical_position 597,50mm
 ```
 
 ## Special Cases
@@ -262,21 +224,15 @@ Cursor maintains horizontal velocity when entering portrait
 
 ### Gaps Between Monitors
 
-Handle physical gaps:
+stilch automatically handles physical gaps between monitors using boundary-based gap jumping:
 
-```toml
-[[outputs]]
-name = "DP-1"
-position = { x = 0, y = 0 }
+```bash
+# Displays with a physical gap between them
+output DP-1 physical_size 300x200mm physical_position 0,0mm
+output DP-2 physical_size 300x200mm physical_position 400,0mm  # 100mm gap
 
-[[outputs]]
-name = "DP-2"
-position = { x = 600, y = 0 }  # 600mm from origin
-physical_gap = 50  # 50mm physical gap
-
-[cursor.gaps]
-behavior = "jump"  # jump, resist, or warp
-resistance_time = 100  # ms to resist before jumping
+# The gap is automatically detected and cursor will jump across when
+# crossing the boundary in the direction of the other display
 ```
 
 ### Different Refresh Rates
@@ -371,56 +327,11 @@ pub fn handle_touchpad_scroll(&mut self, delta: Point<f64>) {
 }
 ```
 
-## Accessibility
-
-### Large Cursor Support
-
-Maintain accessibility settings:
-
-```toml
-[accessibility.cursor]
-size = "large"  # normal, large, extra-large
-high_contrast = true
-color = "#FFFF00"  # Yellow for visibility
-```
-
-### Cursor Trails
-
-Help track cursor across boundaries:
-
-```toml
-[cursor.trails]
-enabled = true
-length = 5  # Number of trail segments
-fade_time = 200  # ms
-```
-
 ## Testing & Debugging
 
-### Debug Visualization
+### Testing Physical Layout
 
-Enable cursor debug overlay:
-
-```toml
-[debug.cursor]
-show_position = true  # Show coordinates
-show_velocity = true  # Show movement vector
-show_boundaries = true  # Highlight monitor boundaries
-show_prediction = true  # Show predicted path
-```
-
-### Testing Commands
-
-```bash
-# Test cursor transition
-stilchsg cursor test-transition DP-1 HDMI-1
-
-# Show cursor info
-stilchsg cursor info
-
-# Simulate different DPI
-stilchsg debug set-dpi DP-1 192
-```
+The physical layout with gap jumping can be tested by configuring displays with gaps and moving the cursor between them. The cursor will automatically jump gaps when crossing display boundaries.
 
 ## Known Limitations
 

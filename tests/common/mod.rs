@@ -52,7 +52,13 @@ impl TestEnv {
         ];
 
         println!("Starting compositor for test '{}'...", self.test_name);
-        let child = Command::new("target/debug/stilch")
+        // Use release build if it exists, otherwise debug
+        let stilch_binary = if std::path::Path::new("target/release/stilch").exists() {
+            "target/release/stilch"
+        } else {
+            "target/debug/stilch"
+        };
+        let child = Command::new(stilch_binary)
             .args(args)
             .envs(env_vars.iter().cloned())
             .spawn()?;

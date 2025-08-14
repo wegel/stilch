@@ -907,16 +907,39 @@ fn place_new_window(
 }
 
 pub fn fixup_positions(space: &mut Space<WindowElement>, pointer_location: Point<f64, Logical>) {
+    fixup_positions_with_config(space, pointer_location, &[]);
+}
+
+pub fn fixup_positions_with_config(
+    space: &mut Space<WindowElement>,
+    pointer_location: Point<f64, Logical>,
+    output_configs: &[crate::config::OutputConfig],
+) {
     // fixup outputs
     let mut offset = Point::<i32, Logical>::from((0, 0));
     for output in space.outputs().cloned().collect::<Vec<_>>().into_iter() {
-        let size = space
-            .output_geometry(&output)
-            .map(|geo| geo.size)
-            .unwrap_or_else(|| Size::from((0, 0)));
-        space.map_output(&output, offset);
+        let output_name = output.name();
+        
+        // Check if this output has a configured position
+        let configured_position = output_configs
+            .iter()
+            .find(|c| c.name == output_name)
+            .and_then(|c| c.position);
+        
+        if let Some((x, y)) = configured_position {
+            // Use configured position
+            space.map_output(&output, Point::from((x, y)));
+        } else {
+            // Use automatic horizontal layout
+            let size = space
+                .output_geometry(&output)
+                .map(|geo| geo.size)
+                .unwrap_or_else(|| Size::from((0, 0)));
+            space.map_output(&output, offset);
+            offset.x += size.w;
+        }
+        
         layer_map_for_output(&output).arrange();
-        offset.x += size.w;
     }
 
     // fixup windows

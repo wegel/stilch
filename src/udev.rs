@@ -1149,12 +1149,59 @@ impl StilchState<UdevData> {
         connector: connector::Info,
         crtc: crtc::Handle,
     ) {
-        // Calculate x position before the mutable borrow
-        let x = {
-            let space = self.space();
-            space.outputs().fold(0, |acc, o| {
-                acc + space.output_geometry(o).map(|geo| geo.size.w).unwrap_or(0)
-            })
+        // Get output name early for config lookup
+        let output_name = format!(
+            "{}-{}",
+            connector.interface().as_str(),
+            connector.interface_id()
+        );
+
+        // Find output config if it exists
+        let output_config = self
+            .config
+            .outputs
+            .iter()
+            .find(|o| o.name == output_name)
+            .cloned();
+
+        // Calculate position before getting mutable device reference
+        let position_coords = if let Some(ref config) = output_config {
+            if let Some((pos_x, pos_y)) = config.position {
+                // Use configured position (in physical pixels)
+                info!(
+                    "Output {} using configured position: ({}, {})",
+                    output_name, pos_x, pos_y
+                );
+                (pos_x, pos_y)
+            } else {
+                // No position configured, line up horizontally
+                let x = self.space().outputs().fold(0, |acc, o| {
+                    acc + self
+                        .space()
+                        .output_geometry(o)
+                        .map(|geo| geo.size.w)
+                        .unwrap_or(0)
+                });
+                info!(
+                    "Output {} has no configured position, lining up horizontally at ({}, 0)",
+                    output_name, x
+                );
+                (x, 0)
+            }
+        } else {
+            // No config at all, line up horizontally
+            let x = self.space().outputs().fold(0, |acc, o| {
+                acc + self
+                    .space()
+                    .output_geometry(o)
+                    .map(|geo| geo.size.w)
+                    .unwrap_or(0)
+            });
+            info!(
+                "Output {} has no config at all, lining up horizontally at ({}, 0)",
+                output_name, x
+            );
+            (x, 0)
         };
 
         let device = if let Some(device) = self.backend_data.backends.get_mut(&node) {
@@ -1172,11 +1219,6 @@ impl StilchState<UdevData> {
             }
         };
 
-        let output_name = format!(
-            "{}-{}",
-            connector.interface().as_str(),
-            connector.interface_id()
-        );
         info!(?crtc, "Trying to setup connector {}", output_name,);
 
         let drm_device = device.drm_output_manager.device();
@@ -1247,16 +1289,14 @@ impl StilchState<UdevData> {
             );
             let global = output.create_global::<StilchState<UdevData>>(&self.display_handle);
 
-            let position = (x, 0).into();
+            // Use the pre-calculated position
+            let position = position_coords.into();
 
             output.set_preferred(wl_mode);
 
-            // Find output config if it exists
-            let output_config = self.config.outputs.iter().find(|o| o.name == output_name);
-
             // Determine scale from config or auto-detect
             let scale = {
-                let configured_scale = output_config.and_then(|o| o.scale);
+                let configured_scale = output_config.as_ref().and_then(|o| o.scale);
 
                 if let Some(scale) = configured_scale {
                     info!(
@@ -1278,7 +1318,7 @@ impl StilchState<UdevData> {
             };
 
             // Determine transform from config
-            let transform = output_config.and_then(|o| {
+            let transform = output_config.as_ref().and_then(|o| {
                 o.transform.as_ref().and_then(|t| {
                     use smithay::utils::Transform;
                     match t.as_str() {
@@ -1417,6 +1457,48 @@ impl StilchState<UdevData> {
 
             // Store output reference before moving it
             let output_ref = output.clone();
+
+            // Update physical layout manager if physical dimensions are configured
+            // Also override position if physical position is set
+            let mut final_position = position;
+            if let Some(ref config) = output_config {
+                if let (Some(physical_size_mm), Some(physical_position_mm)) = 
+                    (config.physical_size_mm, config.physical_position_mm) 
+                {
+                    // Initialize physical layout manager if not already done
+                    if self.physical_layout.is_none() {
+                        self.physical_layout = Some(crate::physical_layout::PhysicalLayoutManager::new());
+                    }
+                    
+                    // When using physical layout, use configured position
+                    // The PhysicalLayoutManager will handle cursor transitions based on physical alignment
+                    final_position = position;
+                    
+                    if let Some(ref mut physical_layout) = self.physical_layout {
+                        // Create PhysicalDisplay entry for this output
+                        let physical_display = crate::physical_layout::PhysicalDisplay {
+                            name: output_name.clone(),
+                            pixel_size: wl_mode.size.into(),
+                            physical_size_mm: smithay::utils::Size::from((physical_size_mm.0, physical_size_mm.1)),
+                            physical_position_mm: smithay::utils::Point::from((physical_position_mm.0, physical_position_mm.1)),
+                            scale,
+                            transform: transform.unwrap_or(smithay::utils::Transform::Normal),
+                            logical_position: final_position,
+                            logical_size,
+                        };
+                        
+                        info!(
+                            "Adding display '{}' to physical layout: {}x{}mm at ({}, {})mm, scale {}",
+                            output_name, 
+                            physical_size_mm.0, physical_size_mm.1,
+                            physical_position_mm.0, physical_position_mm.1,
+                            scale
+                        );
+                        
+                        physical_layout.add_display(physical_display);
+                    }
+                }
+            }
 
             // First check if this output is part of ANY virtual output config
             let mut handled_by_virtual_config = false;
@@ -1588,7 +1670,7 @@ impl StilchState<UdevData> {
             }
 
             // Map the output in the space
-            self.space_mut().map_output(&output_ref, position);
+            self.space_mut().map_output(&output_ref, final_position);
 
             // Update tiling area for new output
             self.update_tiling_area_from_output();
@@ -1635,6 +1717,13 @@ impl StilchState<UdevData> {
 
         // Now we can use self mutably
         if let Some(output) = maybe_output {
+            // Remove from physical layout manager if present
+            if let Some(ref mut physical_layout) = self.physical_layout {
+                let output_name = output.name();
+                info!("Removing display '{}' from physical layout", output_name);
+                physical_layout.remove_display(&output_name);
+            }
+            
             // Remove any virtual outputs associated with this physical output
             let removed_virtual = self.virtual_output_manager.remove_physical_output(&output);
             for vo_id in removed_virtual {
@@ -1712,9 +1801,10 @@ impl StilchState<UdevData> {
             }
         }
 
-        // fixup window coordinates
+        // fixup window coordinates and output positions
         let pointer_location = self.pointer().current_location();
-        crate::shell::fixup_positions(self.space_mut(), pointer_location);
+        let output_configs = self.config.outputs.clone();
+        crate::shell::fixup_positions_with_config(self.space_mut(), pointer_location, &output_configs);
     }
 
     fn device_removed(&mut self, node: DrmNode) {
@@ -1752,7 +1842,8 @@ impl StilchState<UdevData> {
         }
 
         let pointer_location = self.pointer().current_location();
-        crate::shell::fixup_positions(self.space_mut(), pointer_location);
+        let output_configs = self.config.outputs.clone();
+        crate::shell::fixup_positions_with_config(self.space_mut(), pointer_location, &output_configs);
     }
 
     fn frame_finish(

@@ -244,6 +244,47 @@ pub fn run_winit() -> Result<(), Box<dyn std::error::Error>> {
         .update_formats(state.backend_data.backend.renderer().shm_formats());
     state.space_mut().map_output(&output, (0, 0));
 
+    // Check if physical layout is configured for this output
+    let output_config = state
+        .config
+        .outputs
+        .iter()
+        .find(|o| o.name == OUTPUT_NAME)
+        .cloned();
+    
+    if let Some(ref config) = output_config {
+        if let (Some(physical_size_mm), Some(physical_position_mm)) = 
+            (config.physical_size_mm, config.physical_position_mm) 
+        {
+            // Initialize physical layout manager if not already done
+            if state.physical_layout.is_none() {
+                state.physical_layout = Some(crate::physical_layout::PhysicalLayoutManager::new());
+            }
+            
+            if let Some(ref mut physical_layout) = state.physical_layout {
+                // Create PhysicalDisplay entry for this output
+                let physical_display = crate::physical_layout::PhysicalDisplay {
+                    name: OUTPUT_NAME.to_string(),
+                    pixel_size: size.into(),
+                    physical_size_mm: smithay::utils::Size::from((physical_size_mm.0, physical_size_mm.1)),
+                    physical_position_mm: smithay::utils::Point::from((physical_position_mm.0, physical_position_mm.1)),
+                    scale: 1.0, // Winit doesn't have configurable scale yet
+                    transform: Transform::Flipped180,
+                    logical_position: (0, 0).into(),
+                    logical_size: size.to_logical(1),
+                };
+                
+                info!(
+                    "Adding winit display to physical layout: {}x{}mm at ({}, {})mm",
+                    physical_size_mm.0, physical_size_mm.1,
+                    physical_position_mm.0, physical_position_mm.1
+                );
+                
+                physical_layout.add_display(physical_display);
+            }
+        }
+    }
+
     // Check configuration for output settings
     let logical_size = size.to_logical(1);
     let output_name = output.name();

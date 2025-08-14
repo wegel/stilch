@@ -110,6 +110,9 @@ pub struct StilchState<BackendData: Backend + 'static> {
 
     // Input management
     pub input_manager: crate::input::InputManager<BackendData>,
+    
+    // Physical layout management for cursor continuity
+    pub physical_layout: Option<crate::physical_layout::PhysicalLayoutManager>,
 
     // Event system
     pub event_bus: EventBus,
@@ -421,6 +424,7 @@ impl<BackendData: Backend + 'static> StilchState<BackendData> {
             protocols,
             workspace_manager: crate::workspace::WorkspaceManager::new(inner_gap),
             input_manager,
+            physical_layout: None, // Will be initialized when outputs are configured
             event_bus: EventBus::new(),
             command_executor: CommandExecutor::new(),
             seat_name,

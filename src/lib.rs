@@ -46,6 +46,7 @@ pub mod handlers;
 pub mod input;
 pub mod ipc;
 pub mod keybindings;
+pub mod physical_layout;
 pub mod render;
 pub mod shell;
 pub mod state;
